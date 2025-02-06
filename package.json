@@ -1,0 +1,11 @@
+{
+  "name": "plexus",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "test": "ava"
+  },
+  "devDependencies": {
+    "ava": "^6.2.0"
+  }
+}
