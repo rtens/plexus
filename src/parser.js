@@ -26,6 +26,7 @@ export default class Parser {
       this.state = 'many'
 
     } else if (c == ']') {
+      if (this.stack.length == 1) return
       this.push(Sig.from(this.stack.pop()))
 
     }

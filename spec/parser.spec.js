@@ -47,6 +47,9 @@ test('hex', should_parse_sig(
 test('fluff', should_parse(
   'fluff[fluff[foo]fluff[bar]fluff]fluff', ['foo', 'bar']))
 
+test('surprising end', should_parse(
+  'foo]'))
+
 function should_parse(string, ...parsed) {
   return should_parse_sig(string,
     ...parsed.map(p => Sig.from(p)))

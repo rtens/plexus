@@ -1,7 +1,10 @@
 import readline from 'node:readline'
 import Printer from './src/printer.js'
 import Parser from './src/parser.js'
+import Proc from './src/proc.js'
 import Plex from './src/plex.js'
+import Link from './src/link.js'
+import Node from './src/node.js'
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -13,10 +16,13 @@ const commands = {
 or enter / followed by a command name and its argument.
 
 Available commands are:
-  q                 - quit
-  link host [port]  - link to a node`,
-  
-  q: () => process.exit()
+  q                   - quit
+  link [host [port]]  - link to a node`,
+
+  q: () => process.exit(),
+
+  link: (host = 'localhost', port = 4242) =>
+    node.attach(new Link.Client(host, port))
 }
 
 console.log('Enter /? for help')
@@ -28,6 +34,9 @@ const plex = new Plex()
 plex.add({
   bind: sig => console.log('<', printer.print(sig).split('\n').join('\n  '))
 })
+const emitter = plex.add(new Proc())
+
+const node = new Node(plex)
 
 while (true) {
   await new Promise(resolve =>
@@ -43,17 +52,17 @@ while (true) {
 
 function execute_command(input) {
   const args = input.split(' ');
-  const command = commands[args.shift()];
+  const command = commands[args.shift()]
   if (!command) {
-    console.log('Unknown command');
+    console.log('Unknown command')
   } else {
-    console.log(command(...args));
+    command(...args)
   }
 }
 
 function send_sig(input) {
-  parser.parse(input + '\n');
+  parser.parse(input + '\n')
   while (parser.parsed.length) {
-    plex.bind(parser.parsed.shift());
+    emitter.emit(parser.parsed.shift())
   }
 }
