@@ -12,10 +12,8 @@ export default class Printer {
       if (sig.data.length == 1) {
         return `[#${parseInt(sig.data.toString('hex'), 16)}]`
 
-      } else if (Array.from(sig.data.values()).every(d => d >= 9 && d <= 13 || d >= 32 && d < 127)) {
-        return `[${sig.string()
-          .replaceAll('\n', '\\n')
-          .replaceAll('\r', '\\r')}]`
+      } else if (Array.from(sig.data.values()).every(d => d >= 32 && d < 127)) {
+        return `[${sig.string()}]`
 
       } else if (sig.data.length <= 4) {
         return `[#${parseInt(sig.data.toString('hex'), 16)}]`

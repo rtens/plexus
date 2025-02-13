@@ -32,7 +32,7 @@ const printer = new Printer().pretty()
 
 const plex = new Plex()
 plex.add({
-  bind: sig => console.log('<', printer.print(sig).split('\n').join('\n  '))
+  bind: sig => console.log('\n<', printer.print(sig).split('\n').join('\n  '))
 })
 const emitter = plex.add(new Proc())
 
@@ -61,7 +61,7 @@ function execute_command(input) {
 }
 
 function send_sig(input) {
-  parser.parse(input + '\n')
+  parser.parse(input)
   while (parser.parsed.length) {
     emitter.emit(parser.parsed.shift())
   }
