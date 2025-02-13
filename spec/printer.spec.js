@@ -32,20 +32,23 @@ test('list', should_print(
 test('pretty', t => {
   const printed = new Printer().pretty()
     .print(Sig.from({
-      foo: 'bar',
+      foo: [['bar']],
       bar: [42, 43, 44],
-      one: { two: { tre: [['for']] } }
+      one: { two: { tre: [['fo', 'fa', 'fi', 'fe']] } }
     }))
 
   t.is('\n' + printed, `
 [ [foo]
+  [[[bar]]]
   [bar]
-  [bar]
-  [ [#42] [#43] [#44]]
+  [[#42] [#43] [#44]]
   [one]
   [ [two]
     [ [tre]
-      [[[for]]]]]]`)
+      [[ [fo]
+         [fa]
+         [fi]
+         [fe]]]]]]`)
 })
 
 function should_print(input, expected) {
