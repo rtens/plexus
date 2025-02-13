@@ -1,46 +1,61 @@
 import test from 'ava'
 import Parser from '../src/parser.js'
+import Sig from '../src/sig.js'
 
 test('incomplete', t => {
-  for (const s of ['', '[', '[foo', 'foo']) {
-    should_parse(s, [undefined])(t)
+  for (const chunk of ['', '[', '[foo', 'foo']) {
+    should_parse(chunk)(t)
   }
 })
 
 test('nothing', should_parse(
-  '[]', [null]))
+  '[][]', null, undefined))
 
-test('something', should_parse(
-  '[foo]', [b('foo')]))
+test('string', should_parse(
+  '[foo]', 'foo'))
 
-test('more tings', should_parse(
-  '[foo][bar]', [b('foo'), b('bar')]))
+test('multiple', should_parse(
+  '[foo][bar]', 'foo', 'bar'))
 
 test('list', should_parse(
-  '[[foo][bar]]', [[b('foo'), b('bar')]]))
+  '[[foo][bar]]', ['foo', 'bar']))
 
 test('tree', should_parse(
-  '[[[foo][bar]][baz]]', [[[b('foo'), b('bar')], b('baz')]]))
+  '[[[foo][bar]][baz]]', [['foo', 'bar'], 'baz']))
 
-test('special', should_parse(
-  '[\\n]', [b('\n')]))
+test('special char', should_parse(
+  '[\\n]', '\n'))
 
 test('escaped', should_parse(
-  '[foo\\[bar\\]ba\\\\z]', [b('foo[bar]ba\\z')]
-))
+  '[foo\\[bar\\]ba\\\\z]', 'foo[bar]ba\\z'))
 
-test.todo('malformed')
+test('decimal', should_parse(
+  '[#42]', 42))
 
-test.todo('fluff')
+test('zero', should_parse(
+  '[#0]', 0))
 
-function b(string) {
-  return Buffer.from(string, 'ascii')
+test('ignore letters', should_parse(
+  '[#4a2]', 42))
+
+test('not decimal', should_parse(
+  '[foo#42]', 'foo#42'))
+
+test('hex', should_parse_sig(
+  '[#xfaBExx42]', Sig.from('fabe42', 'hex')))
+
+test('fluff', should_parse(
+  'fluff[fluff[foo]fluff[bar]fluff]fluff', ['foo', 'bar']))
+
+function should_parse(string, ...parsed) {
+  return should_parse_sig(string,
+    ...parsed.map(p => Sig.from(p)))
 }
 
-function should_parse(string, parsed) {
+function should_parse_sig(string, ...parsed) {
   return t => {
     const parser = new Parser()
     parser.parse(string)
-    t.like(parser.parsed, parsed)
+    t.deepEqual(parser.parsed, parsed)
   }
 }

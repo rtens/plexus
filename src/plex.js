@@ -1,26 +1,25 @@
-import Plek from './plek.js'
+import Proc from './proc.js'
 
-export default class Plex extends Plek {
+export default class Plex extends Proc {
 
   constructor() {
     super()
-    this.pleks = []
+    this.procs = []
   }
 
-  see(ting) {
-    this.pleks.forEach(plek =>
+  add(proc) {
+    this.procs.push(proc)
+    proc.emit = sig => {
+      this.bind(sig)
+      this.emit(sig)
+    }
+    return proc
+  }
+
+  bind(sig) {
+    this.procs.forEach(proc =>
       Promise.resolve()
-        .then(() => plek.see(ting))
+        .then(() => proc.bind(sig))
         .catch(console.log))
   }
-
-  add(plek) {
-    plek.emit = ting => {
-      this.see(ting)
-      this.emit(ting)
-    }
-    this.pleks.push(plek)
-  }
-
-  remove(plek) {}
 }

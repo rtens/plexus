@@ -1,127 +1,115 @@
 import test from 'ava'
 import Plex from '../src/plex.js'
-import Plek from '../src/plek.js'
+import Proc from '../src/proc.js'
 
-test('distribute seen tings', async t => {
+test('distribute bound sigs', async t => {
   const plex = new Plex()
-  const seen = {a: [], b: []}
-  plex.add(new class extends Plek {
-    see(ting) { seen.a.push(ting) }
-  })
-  plex.add(new class extends Plek {
-    see(ting) { seen.b.push(ting) }
-  })
-  plex.add(new Plek)
+  const Binder = class extends Proc {
+    bind(sig) { this.bound = sig }
+  }
+  const a = plex.add(new Binder)
+  const b = plex.add(new Binder)
+  const waiter = plex.add(new Waiter)
+  plex.add(new Proc)
 
-  const waiter = new Waiter
-  plex.add(waiter)
+  plex.bind('foo')
 
-  plex.see('foo')
   await waiter.done
-  t.like(seen, {
-    a: ['foo'],
-    b: ['foo']
-  })
+  t.is(a.bound, 'foo')
+  t.is(b.bound, 'foo')
 })
 
-test('distribute emitted tings', async t => {
+test('distribute emitted sigs', async t => {
   const plex = new Plex()
-  const seen = {a: [], b: []}
-  plex.add(new class extends Plek {
-    see(ting) { seen.a.push(ting) }
-  })
-  plex.add(new class extends Plek {
-    see(ting) { seen.b.push(ting) }
-  })
-  const plek = new Plek
-  plek.emit('unseen')
-  plex.add(plek)
-  const waiter = new Waiter
-  plex.add(waiter)
+  const Binder = class extends Proc {
+    bind(sig) { this.bound = sig }
+  }
+  const a = plex.add(new Binder)
+  const b = plex.add(new Binder)
+  const emitter = plex.add(new Binder)
+  const waiter = plex.add(new Waiter)
 
-  plek.emit('foo')
+  emitter.emit('foo')
+
   await waiter.done
-  t.like(seen, {
-    a: ['foo', undefined],
-    b: ['foo', undefined]
-  })
+  t.is(a.bound, 'foo')
+  t.is(b.bound, 'foo')
+  t.is(emitter.bound, 'foo')
 })
 
-test('emit emitted tings', t => {
+test('emit emitted sigs', t => {
   const plex = new Plex()
-  const emitted = []
-  plex.emit = ting => emitted.push(ting)
-  const plek = new Plek
-  plex.add(plek)
+  let emitted = ''
+  plex.emit = sig => emitted += sig
+  const proc = plex.add(new Proc)
 
-  plek.emit('foo')
-  t.like(emitted, ['foo', undefined])
+  proc.emit('foo')
+
+  t.is(emitted, 'foo')
 })
 
-test('do not emit seen tings', async t => {
+test('do not emit bound sigs', async t => {
   const plex = new Plex()
-  const emitted = []
-  plex.emit = ting => emitted.push(ting)
-  const waiter = new Waiter
-  plex.add(waiter)
+  const emitted = ''
+  plex.emit = sig => emitted += sig
+  const waiter = plex.add(new Waiter)
 
-  plex.see('foo')
+  plex.bind('foo')
+
   await waiter.done
-  t.like(emitted, [undefined])
+  t.is(emitted, '')
 })
 
 test('log errors', async t => {
+  const plex = new Plex()
+  plex.add({ bind() { throw 'boom' } })
+
   const logged = []
   const log = console.log
   console.log = (...args) => logged.push(args)
-  const plex = new Plex()
-  plex.add(new class extends Plek {
-    see(ting) { throw 'boom' }
-  })
-  const waiter = new Waiter
-  plex.add(waiter)
 
-  plex.see('foo')
-  await waiter.done
-  t.like(logged, [
-    ['boom'],
-    undefined
-  ])
+  plex.bind('foo')
+
+  await wait_for(() => logged.length)
   console.log = log
+
+  t.deepEqual(logged, [['boom']])
 })
 
 test('log rejections', async t => {
+  const plex = new Plex()
+  plex.add({ bind() { return Promise.reject('boom') } })
+
   const logged = []
   const log = console.log
   console.log = (...args) => logged.push(args)
-  const plex = new Plex()
-  plex.add(new class extends Plek {
-    see(ting) { return Promise.reject('boom') }
-  })
 
-  plex.see('foo')
-  await new Promise(y => {
-    const wait = () =>
-          logged.length ? y()
-          : setTimeout(wait)
-    wait()
-  })
-  t.like(logged, [
-    ['boom'],
-    undefined
-  ])
+  plex.bind('foo')
+
+  await wait_for(() => logged.length)
   console.log = log
+
+  t.deepEqual(logged, [['boom']])
 })
 
-class Waiter extends Plek {
+class Waiter {
 
   constructor() {
-    super()
-    this.done = new Promise(y =>
-      this.resolve = y)
+    this.done = new Promise(resolve =>
+      this.resolve = resolve)
   }
 
-  see() {
+  bind() {
     this.resolve()
   }
+}
+
+function wait_for(condition) {
+  return new Promise(resolve => {
+    const wait = () =>
+      condition()
+        ? resolve()
+        : setTimeout(wait)
+    wait()
+  })
 }

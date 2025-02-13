@@ -1,6 +1,6 @@
 export default class Link {
 
-  send(data) {}
+  send(packet) {}
 
-  receive(data) {}
+  receive(packet) {}
 }
