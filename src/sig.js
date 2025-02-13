@@ -3,23 +3,30 @@ export default class Sig {
   static from(value, enc = 'ascii') {
     if (value instanceof Sig) {
       return value
+
     } else if (value instanceof Buffer) {
       return new One(value)
+
     } else if (value == null) {
       return none
+
     } else if (Array.isArray(value)) {
       if (!value.length) return none
       return new Many(value.map(v => Sig.from(v)))
+
     } else if (typeof value == 'object') {
       if (!Object.keys(value).length) return none
       return new Many(Object.entries(value)
         .reduce((acc, [k, v]) =>
           [...acc, Sig.from(k), Sig.from(v)],
           []))
+
     } else if (typeof value == 'number') {
       let hex = value.toString(16)
       if (hex.length % 2 == 1) hex = '0' + hex
+
       return new One(Buffer.from(hex, 'hex'))
+
     } else if (typeof value == 'string') {
       if (!value) return none
       return new One(Buffer.from(value, enc))

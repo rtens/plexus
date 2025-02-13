@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import Parser from './parser.js'
+import Sig from './sig.js'
 
 const start = Buffer.from('11', 'hex')
 const esc = Buffer.from('12', 'hex')
@@ -14,6 +14,7 @@ export default class Node {
 
     this.links = []
     this.received = {}
+    this.parser = new Parser()
   }
 
   attach(link) {
@@ -40,13 +41,12 @@ export default class Node {
   }
 
   receive(packet, receiver) {
-    const sig = this.unpack(packet)
-    if (!sig) return
-
-    this.plex.bind(sig)
-    this.links
-      .filter(l => l != receiver)
-      .forEach(l => l.send(packet))
+    this.unpack(packet, sig => {
+      this.plex.bind(sig)
+      this.links
+        .filter(l => l != receiver)
+        .forEach(l => l.send(packet))
+    })
   }
 
   pack(sig) {
@@ -68,15 +68,82 @@ export default class Node {
     }
   }
 
-  unpack(packet) {
-    const sig = new Parser().parse(packet).parsed[0]
-    const id = sig.at(0).toString('hex')
-    if (id in this.received) {
-      return null
-    }
+  unpack(packet, on_sig) {
+    this.parser.parse(packet)
 
-    this.received[id] = true
-    return sig.at(1)
+    while (this.parser.parsed.length) {
+      const sig = this.parser.parsed.shift()
+
+      const id = sig.at(0).string('hex')
+      if (id in this.received) return
+
+      this.received[id] = true
+      on_sig(sig.at(1))
+    }
   }
 
+}
+
+class Parser {
+
+  constructor() {
+    this.parsed = []
+    this.one = []
+    this.stack = [this.parsed]
+    this.state = 'out'
+  }
+
+  parse(buffer) {
+    for (const c of buffer) {
+      this['on_' + this.state](c)
+    }
+    return this
+  }
+
+  push(value) {
+    this.stack[this.stack.length - 1]
+      .push(value)
+  }
+
+  on_out(c) {
+    if (c == start[0]) {
+      this.state = 'many'
+
+    } else if (c == end[0]) {
+      this.push(Sig.from(this.stack.pop()))
+    }
+  }
+
+  on_many(c) {
+    if (c == start[0]) {
+      this.stack.push([])
+
+    } else if (c == end[0]) {
+      this.push(Sig.from(null))
+      this.state = 'out'
+
+    } else {
+      this.state = 'one'
+      this.on_one(c)
+    }
+  }
+
+  on_one(c) {
+    if (c == end[0]) {
+      this.push(Sig.from(Buffer.from(this.one)))
+      this.one = []
+      this.state = 'out'
+
+    } else if (c == esc[0]) {
+      this.state = 'esc'
+
+    } else {
+      this.one.push(c)
+    }
+  }
+
+  on_esc(c) {
+    this.one.push(c)
+    this.state = 'one'
+  }
 }

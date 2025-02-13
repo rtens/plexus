@@ -9,8 +9,8 @@ export default class Parser {
     this.state = 'out'
   }
 
-  parse(string_of_buffer) {
-    for (const c of string_of_buffer) {
+  parse(string) {
+    for (const c of string) {
       this['on_' + this.state](c)
     }
     return this
@@ -22,20 +22,20 @@ export default class Parser {
   }
 
   on_out(c) {
-    if (c == '[' || c == 17) {
+    if (c == '[') {
       this.state = 'many'
 
-    } else if (c == ']' || c == 19) {
+    } else if (c == ']') {
       this.push(Sig.from(this.stack.pop()))
 
     }
   }
 
   on_many(c) {
-    if (c == '[' || c == 17) {
+    if (c == '[') {
       this.stack.push([])
 
-    } else if (c == ']' || c == 19) {
+    } else if (c == ']') {
       this.push(Sig.from(null))
       this.state = 'out'
 
@@ -46,44 +46,29 @@ export default class Parser {
   }
 
   on_one(c) {
-    if (c == '[' || c == 17) {
+    if (c == '[') {
       this.one = ''
       this.state == 'many'
       this.on_many(c)
 
-    } else if (c == ']' || c == 19) {
-      if (Array.isArray(this.one)) {
-        this.push(Sig.from(Buffer.from(this.one)))
-      } else {
-        this.push(Sig.from(this.one))
-      }
+    } else if (c == ']') {
+      this.push(Sig.from(this.one))
       this.one = ''
       this.state = 'out'
 
-    } else if (c == '\\' || c == 18) {
+    } else if (c == '\\') {
       this.state = 'esc'
 
     } else if (!this.one && c == '#') {
       this.state = 'dec'
 
-    } else if (typeof c == 'string') {
-      this.one += c
-
-    } else if (!this.one) {
-      this.one = [c]
     } else {
-      this.one.push(c)
+      this.one += c
     }
   }
 
   on_esc(c) {
-    if (typeof c == 'string') {
-      this.one += eval(`'\\${c}'`)
-    } else if (!this.one) {
-      this.one = [c]
-    } else {
-      this.one.push(c)
-    }
+    this.one += eval(`'\\${c}'`)
     this.state = 'one'
   }
 

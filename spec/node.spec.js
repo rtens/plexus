@@ -91,6 +91,22 @@ test('receive something', async t => {
   t.deepEqual(proc.bound, Sig.from('foo'))
 })
 
+test('receive multiple', async t => {
+  const plex = new Plex()
+  const node = new Node(plex)
+  const bounds = []
+  const proc = plex.add(new class extends Proc {
+    bind(sig) { bounds.push(sig) }
+  })
+  const waiter = plex.add(new Waiter)
+  const link = node.attach(new Link)
+
+  link.receive(Buffer.from('1111441311666f6f131311118813116261721313', 'hex'))
+  await waiter.done
+
+  t.deepEqual(bounds, [Sig.from('foo'), Sig.from('bar')])
+})
+
 test('escape packets', t => {
   const plex = new Plex()
   const node = new Node(plex)
