@@ -1,0 +1,167 @@
+  <!DOCTYPE html>
+  <html>
+  <body style="background-color: black">
+
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
+
+  <canvas id="myCanvas" width="800" height="600">
+  Sorry, your browser does not support canvas.
+  </canvas>
+
+  <script>
+  class Camera {
+    constructor() {
+      this.resolution = [400, 300]
+      this.focal = 1
+      this.maxdist = 100
+      this.dimming = .7
+    }
+
+    async render(scene, canvas, dims) {
+      for (const prog of [20, 10, 5, 1]) {
+        const res = mul(this.resolution, 1/prog)
+        await this.renderat(scene, canvas, dims, res)
+      }
+    }
+
+    async renderat(scene, canvas, {width, height}, [rx, ry]) {
+      const cw = width / rx
+      const ch = height / ry
+
+      const chunk = 100
+      for (let i = 0; i < rx*ry; i += chunk) {
+        const c = i
+        await new Promise(resolve => setTimeout(() => {
+          for (let j = c; j < c+chunk; j++) {
+            const x = j % rx
+            const y = Math.floor(j / rx)
+            const color = this.fragment(scene, rx, ry, x, y)
+            const [r,g,b] = mul(color, 255).map(Math.round)
+            canvas.fillStyle = `rgb(${r} ${g} ${b})`
+            canvas.fillRect(x*cw, y*ch, cw, ch)
+            resolve()
+          }
+        }))
+      }
+    }
+
+    fragment(scene, rx, ry, x, y) {
+      const ray = norm([
+        x / rx - .5,
+        -(y / ry - .5) * (ry/rx),
+        -this.focal
+      ])
+
+      let point = [0,0,0]
+      let dist = 0
+      while (dist < this.maxdist) {
+        const [d, m] = scene(point)
+        if (d < 0.01) {
+          const e = 0.001
+          const de = ve => scene(add(point, ve))[0]
+          const n = norm([
+            de([e,0,0]) - de([-e,0,0]),
+            de([0,e,0]) - de([0,-e,0]),
+            de([0,0,e]) - de([0,0,-e])
+          ])
+          const f = dot(ray, neg(n)) * this.dimming + (1-this.dimming)
+          return mul(m, f)
+        }
+        dist += d
+        point = add(point, mul(ray, d))
+      }
+
+      return [0,0,0]
+    }
+  }
+
+const obj = (sdf, mat) => p => [sdf(p), mat(p)]
+
+const union = objs => p =>
+      objs.reduce((a,c) => !a || c(p)[0] < a[0] ? c(p) : a, null)
+
+const move = v => f => p => f(add(p, neg(v)))
+
+const rot = (u, r) => f => p => f(mmul(rot3(u, r), p))
+
+const $ = (i, ...p) => p.reduce((a,c) => c(a), i)
+
+const sphere = p => len(p) - 1
+
+const box = b => p => {
+  const q = add(p.map(Math.abs), neg(b))
+  return len(q.map(n => Math.max(n, 0))) + Math.min(Math.max(...q, 0),0);
+}
+
+const torus = ([tx,ty]) => ([x,y,z]) => {
+  const q = [len([x,z])-tx,y]
+  return len(q)-ty
+}
+
+const cyan = () => [0,1,1]
+const magenta = () => [1,0,1]
+const yellow = () => [1,1,0]
+
+const scene = union([
+  $(obj(box([1.1,.8,1]), magenta), rot([1,1,0], 1), move([-.5,-.5,-6])),
+  $(obj(sphere, cyan), move([.5,.6,-6])),
+  $(obj(torus([1,.4]), yellow), rot([1,0,0], -.5), move([0.5,-.5,-6]))
+])
+
+
+const canvas = document.getElementById("myCanvas")
+const ctx = canvas.getContext("2d")
+
+new Camera().render(scene, ctx, canvas)
+
+
+function norm(v) {
+  const l = len(v)
+  return v.map(n => n/l)
+}
+
+function len(v) {
+  return Math.sqrt(sum(v.map(n => n*n)))
+}
+
+function add(...v) {
+  return v[0].map((_,i) => sum(v.map(a => a[i])))
+}
+
+function sum(v) {
+  return v.reduce((a,c) => a+c, 0)
+}
+
+function mul(v, f) {
+  return v.map(n => n*f)
+}
+
+function neg(v) {
+  return mul(v, -1)
+}
+
+function dot(a,b) {
+  return sum(a.map((_,i) => a[i]*b[i]))
+}
+
+function rot3(u, r) {
+  const [x,y,z] = norm(u)
+  const c = Math.cos(r)
+  const s = Math.sin(r)
+
+  return [
+    [x*x*(1-c)+c, x*y*(1-c)-z*s, x*z*(1-c)+y*s],
+    [x*y*(1-c)+z*s, y*y*(1-c)+c, y*z*(1-c)-x*s],
+    [x*z*(1-c)-y*s, y*z*(1-c)+x*s, z*z*(1-c)+c]
+  ]
+}
+
+function mmul(m, v) {
+  return m.map(j => dot(j, v))
+}
+
+</script>
+
+</body>
+  </html>
