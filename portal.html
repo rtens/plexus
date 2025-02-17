@@ -29,12 +29,25 @@
     const cyan = () => [0, 1, 1]
     const magenta = () => [1, 0, 1]
     const yellow = () => [1, 1, 0]
+    const red = () => [1, 0, 0]
+    const green = () => [0, 1, 0]
+    const blue = () => [0, 0, 1]
 
     ////// Construction ////////
     const obj = (sdf, mat) => p => [sdf(p), mat(p)]
 
-    const union = objs => p =>
-      objs.reduce((a, c) => !a || c(p)[0] < a[0] ? c(p) : a, null)
+    const union = (...objs) => p =>
+          objs.reduce((a, c) => !a || c(p)[0] < a[0] ? c(p) : a, null)
+
+const sunion = (k, o1, o2) => p => {
+      const [d1, m1] = o1(p)
+      const [d2, m2] = o2(p)
+      const h = clamp(.5 + .5 * (d2-d1)/k, 0, 1)
+      return [
+        fade(d2, d1, h) - k*h*(1-h),
+        mix([m1, m2], [h, 1-h])
+      ]
+    }
 
     const move = v => f => p => f(add(p, neg(v)))
 
@@ -42,14 +55,20 @@
 
     const scale = s => f => p => (([d, m]) => [d * s, m])(f(mul(p, 1 / s)))
 
+    const round = r => f => p => (([d, m]) => [d - r, m])(f(p))
+
     const $ = (i, ...p) => p.reduce((a, c) => c(a), i)
 
     ////// Rendering ////////
-    const scene = union([
+    let scene = sunion(
       $(obj(box([1.1, .8, 1]), magenta), rot([1, 1, 0], .8), move([-.5, -.5, -6])),
       $(obj(sphere, cyan), scale(1.2), move([.3, .8, -6])),
       $(obj(torus([1, .4]), yellow), rot([1, 0, 0], -.5), move([0.5, -.5, -6]))
-    ])
+    )
+
+scene = sunion(.5,
+               $(obj(sphere, red), scale(.8), move([0, 0, -5])),
+               $(obj(box([.8,1,1]), green), round(.3), move([-1.7, 0, -5])))
 
     class Camera {
       constructor() {
@@ -195,10 +214,21 @@
       return m.map(j => dot(j, v))
     }
 
-    function mix(colors) {
-      const f = 1 / colors.length
+    function mix(colors, ratios = []) {
+      const r = colors.map((_, n) =>
+        n in ratios ? ratios[n] : 1)
+      const sr = sum(r)
       return colors[0].map((_, i) =>
-        Math.sqrt(colors.reduce((a, c) => a + c[i] * c[i] * f, 0)))
+        Math.sqrt(colors.reduce((a, c, n) =>
+          a + c[i] * c[i] * r[n] / sr, 0)))
+    }
+
+    function clamp(v, l, h) {
+      return Math.min(Math.max(v, l), h)
+    }
+
+    function fade(l, h, t) {
+      return l + (h - l) * t
     }
 
   </script>
