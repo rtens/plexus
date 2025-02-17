@@ -60,21 +60,24 @@ const sunion = (k, o1, o2) => p => {
     const $ = (i, ...p) => p.reduce((a, c) => c(a), i)
 
     ////// Rendering ////////
-    let scene = sunion(
-      $(obj(box([1.1, .8, 1]), magenta), rot([1, 1, 0], .8), move([-.5, -.5, -6])),
-      $(obj(sphere, cyan), scale(1.2), move([.3, .8, -6])),
-      $(obj(torus([1, .4]), yellow), rot([1, 0, 0], -.5), move([0.5, -.5, -6]))
-    )
-
-scene = sunion(.5,
-               $(obj(sphere, red), scale(.8), move([0, 0, -5])),
-               $(obj(box([.8,1,1]), green), round(.3), move([-1.7, 0, -5])))
+    let scene = sunion(.1,
+      sunion(.3,
+        $(obj(box([1, .6, .7]), magenta),
+          round(.3),
+          rot([1, 1, 0], .8),
+          move([-.5, -.5, -6])),
+        $(obj(sphere, cyan),
+          scale(1.2),
+          move([.3, .8, -6]))),
+      $(obj(torus([1.2, .3]), yellow),
+        rot([1, 0, 0], -.5),
+        move([0.5, -.5, -6])))
 
     class Camera {
       constructor() {
         this.focal = 1
         this.maxdist = 100
-        this.dimming = .7
+        this.dimming = .9
       }
 
       async render(scene, canvas) {
@@ -88,22 +91,22 @@ scene = sunion(.5,
               const x = j % rx
               const y = Math.floor(j / rx)
 
-              const colors = []
-              for (const [dx, dy] of [[.87, .5], [-.87, .5], [0, -1]]) {
-                const ray = norm([
-                  + ((x + .5 + dx / 4) / rx - .5),
-                  - ((y + .5 + dy / 4) / ry - .5) * (ry / rx),
-                  -this.focal
-                ])
-                colors.push(this.fragment(scene, ray))
-              }
-
+              const colors = this.rays(x, y, rx, ry)
+                    .map(ray => this.fragment(scene, ray))
               canvas.paint(x, y, mix(colors))
-
               resolve()
             }
           }))
         }
+      }
+
+      rays(x, y, rx, ry) {
+        const subs = [[.87, .5], [-.87, .5], [0, -1]]
+        return subs.map(([dx, dy]) => norm([
+          + ((x + .5 + dx / 4) / rx - .5),
+          - ((y + .5 + dy / 4) / ry - .5) * (ry / rx),
+          -this.focal
+        ]))
       }
 
       fragment(scene, ray) {
@@ -127,6 +130,7 @@ scene = sunion(.5,
       shade(scene, m, point, ray) {
         const n = this.normal(scene, point)
         const f = (dot(ray, neg(n)) - 1) * this.dimming + 1
+        return mix([m, [0,0,0]], [f, 1-f])
         return mul(m, f)
       }
 
