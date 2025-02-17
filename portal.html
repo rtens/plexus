@@ -1,167 +1,184 @@
-  <!DOCTYPE html>
-  <html>
-  <body style="background-color: black">
+<!DOCTYPE html>
+<html>
+
+<body style="background-color: #111">
 
   <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
   <script>eruda.init();</script>
 
   <canvas id="myCanvas" width="800" height="600">
-  Sorry, your browser does not support canvas.
+    Sorry, your browser does not support canvas.
   </canvas>
 
   <script>
-  class Camera {
-    constructor() {
-      this.resolution = [400, 300]
-      this.focal = 1
-      this.maxdist = 100
-      this.dimming = .7
+
+    ////// Shapes ////////
+    const sphere = p => len(p) - 1
+
+    const box = b => p => {
+      const q = add(p.map(Math.abs), neg(b))
+      return len(q.map(n => Math.max(n, 0))) + Math.min(Math.max(...q, 0), 0);
     }
 
-    async render(scene, canvas, dims) {
-      for (const prog of [20, 10, 5, 1]) {
-        const res = mul(this.resolution, 1/prog)
-        await this.renderat(scene, canvas, dims, res)
+    const torus = ([tx, ty]) => ([x, y, z]) => {
+      const q = [len([x, z]) - tx, y]
+      return len(q) - ty
+    }
+
+    ////// Materials ////////
+    const cyan = () => [0, 1, 1]
+    const magenta = () => [1, 0, 1]
+    const yellow = () => [1, 1, 0]
+
+    ////// Construction ////////
+    const obj = (sdf, mat) => p => [sdf(p), mat(p)]
+
+    const union = objs => p =>
+      objs.reduce((a, c) => !a || c(p)[0] < a[0] ? c(p) : a, null)
+
+    const move = v => f => p => f(add(p, neg(v)))
+
+    const rot = (u, r) => f => p => f(mmul(rot3(u, r), p))
+
+    const $ = (i, ...p) => p.reduce((a, c) => c(a), i)
+
+    ////// Rendering ////////
+    const scene = union([
+      $(obj(box([1.1, .8, 1]), magenta), rot([1, 1, 0], 1), move([-.5, -.5, -6])),
+      $(obj(sphere, cyan), move([.5, .6, -6])),
+      $(obj(torus([1, .4]), yellow), rot([1, 0, 0], -.5), move([0.5, -.5, -6]))
+    ])
+
+    class Camera {
+      constructor() {
+        this.focal = 1
+        this.maxdist = 100
+        this.dimming = .7
       }
-    }
 
-    async renderat(scene, canvas, {width, height}, [rx, ry]) {
-      const cw = width / rx
-      const ch = height / ry
+      async render(scene, canvas) {
+        const [rx, ry] = canvas.resolution
 
-      const chunk = 100
-      for (let i = 0; i < rx*ry; i += chunk) {
-        const c = i
-        await new Promise(resolve => setTimeout(() => {
-          for (let j = c; j < c+chunk; j++) {
-            const x = j % rx
-            const y = Math.floor(j / rx)
-            const color = this.fragment(scene, rx, ry, x, y)
-            const [r,g,b] = mul(color, 255).map(Math.round)
-            canvas.fillStyle = `rgb(${r} ${g} ${b})`
-            canvas.fillRect(x*cw, y*ch, cw, ch)
-            resolve()
-          }
-        }))
-      }
-    }
+        const chunk = 1000
+        for (let i = 0; i < rx * ry; i += chunk) {
+          const c = i
+          await new Promise(resolve => setTimeout(() => {
+            for (let j = c; j < c + chunk; j++) {
+              const x = j % rx
+              const y = Math.floor(j / rx)
 
-    fragment(scene, rx, ry, x, y) {
-      const ray = norm([
-        x / rx - .5,
-        -(y / ry - .5) * (ry/rx),
-        -this.focal
-      ])
+              const ray = norm([
+                + ((x + .5) / rx - .5),
+                - ((y + .5) / ry - .5) * (ry / rx),
+                -this.focal
+              ])
+              const color = this.fragment(scene, ray)
+              canvas.paint(x, y, color)
 
-      let point = [0,0,0]
-      let dist = 0
-      while (dist < this.maxdist) {
-        const [d, m] = scene(point)
-        if (d < 0.01) {
-          const e = 0.001
-          const de = ve => scene(add(point, ve))[0]
-          const n = norm([
-            de([e,0,0]) - de([-e,0,0]),
-            de([0,e,0]) - de([0,-e,0]),
-            de([0,0,e]) - de([0,0,-e])
-          ])
-          const f = dot(ray, neg(n)) * this.dimming + (1-this.dimming)
-          return mul(m, f)
+              resolve()
+            }
+          }))
         }
-        dist += d
-        point = add(point, mul(ray, d))
       }
 
-      return [0,0,0]
+      fragment(scene, ray) {
+        let point = [0, 0, 0]
+        let dist = 0
+        while (dist < this.maxdist) {
+          const [d, m] = scene(point)
+          if (d < 0.001) {
+            const e = 0.0001
+            const de = ve => scene(add(point, ve))[0]
+            const n = norm([
+              de([e, 0, 0]) - de([-e, 0, 0]),
+              de([0, e, 0]) - de([0, -e, 0]),
+              de([0, 0, e]) - de([0, 0, -e])
+            ])
+            const f = dot(ray, neg(n)) * this.dimming + (1 - this.dimming)
+            return mul(m, f)
+          }
+          dist += d
+          point = add(point, mul(ray, d))
+        }
+
+        return [0, 0, 0]
+      }
     }
-  }
 
-const obj = (sdf, mat) => p => [sdf(p), mat(p)]
+    class Canvas {
 
-const union = objs => p =>
-      objs.reduce((a,c) => !a || c(p)[0] < a[0] ? c(p) : a, null)
+      constructor(factor = 1) {
+        const element = document.getElementById("myCanvas")
+        this.ctx = element.getContext("2d")
 
-const move = v => f => p => f(add(p, neg(v)))
+        this.size = [element.width, element.height]
+        this.resolution = mul(this.size, 1 / factor)
+      }
 
-const rot = (u, r) => f => p => f(mmul(rot3(u, r), p))
+      paint(x, y, color) {
+        const [cw, ch] = [0, 1].map(i => this.size[i] / this.resolution[i])
+        const [r, g, b] = mul(color, 255).map(Math.round)
+        this.ctx.fillStyle = `rgb(${r} ${g} ${b})`
+        this.ctx.fillRect(x * cw, y * ch, cw, ch)
+      }
+    }
 
-const $ = (i, ...p) => p.reduce((a,c) => c(a), i)
+    async function render(camera) {
+      for (const prog of [20, 10, 5, 2, 1])
+        await camera.render(scene, new Canvas(prog))
+    }
 
-const sphere = p => len(p) - 1
+    render(new Camera())
 
-const box = b => p => {
-  const q = add(p.map(Math.abs), neg(b))
-  return len(q.map(n => Math.max(n, 0))) + Math.min(Math.max(...q, 0),0);
-}
+    /////// Math ////////
 
-const torus = ([tx,ty]) => ([x,y,z]) => {
-  const q = [len([x,z])-tx,y]
-  return len(q)-ty
-}
+    function norm(v) {
+      const l = len(v)
+      return v.map(n => n / l)
+    }
 
-const cyan = () => [0,1,1]
-const magenta = () => [1,0,1]
-const yellow = () => [1,1,0]
+    function len(v) {
+      return Math.sqrt(sum(v.map(n => n * n)))
+    }
 
-const scene = union([
-  $(obj(box([1.1,.8,1]), magenta), rot([1,1,0], 1), move([-.5,-.5,-6])),
-  $(obj(sphere, cyan), move([.5,.6,-6])),
-  $(obj(torus([1,.4]), yellow), rot([1,0,0], -.5), move([0.5,-.5,-6]))
-])
+    function add(...v) {
+      return v[0].map((_, i) => sum(v.map(a => a[i])))
+    }
 
+    function sum(v) {
+      return v.reduce((a, c) => a + c, 0)
+    }
 
-const canvas = document.getElementById("myCanvas")
-const ctx = canvas.getContext("2d")
+    function mul(v, f) {
+      return v.map(n => n * f)
+    }
 
-new Camera().render(scene, ctx, canvas)
+    function neg(v) {
+      return mul(v, -1)
+    }
 
+    function dot(a, b) {
+      return sum(a.map((_, i) => a[i] * b[i]))
+    }
 
-function norm(v) {
-  const l = len(v)
-  return v.map(n => n/l)
-}
+    function rot3(u, r) {
+      const [x, y, z] = norm(u)
+      const c = Math.cos(r)
+      const s = Math.sin(r)
 
-function len(v) {
-  return Math.sqrt(sum(v.map(n => n*n)))
-}
+      return [
+        [x * x * (1 - c) + c, x * y * (1 - c) - z * s, x * z * (1 - c) + y * s],
+        [x * y * (1 - c) + z * s, y * y * (1 - c) + c, y * z * (1 - c) - x * s],
+        [x * z * (1 - c) - y * s, y * z * (1 - c) + x * s, z * z * (1 - c) + c]
+      ]
+    }
 
-function add(...v) {
-  return v[0].map((_,i) => sum(v.map(a => a[i])))
-}
+    function mmul(m, v) {
+      return m.map(j => dot(j, v))
+    }
 
-function sum(v) {
-  return v.reduce((a,c) => a+c, 0)
-}
-
-function mul(v, f) {
-  return v.map(n => n*f)
-}
-
-function neg(v) {
-  return mul(v, -1)
-}
-
-function dot(a,b) {
-  return sum(a.map((_,i) => a[i]*b[i]))
-}
-
-function rot3(u, r) {
-  const [x,y,z] = norm(u)
-  const c = Math.cos(r)
-  const s = Math.sin(r)
-
-  return [
-    [x*x*(1-c)+c, x*y*(1-c)-z*s, x*z*(1-c)+y*s],
-    [x*y*(1-c)+z*s, y*y*(1-c)+c, y*z*(1-c)-x*s],
-    [x*z*(1-c)-y*s, y*z*(1-c)+x*s, z*z*(1-c)+c]
-  ]
-}
-
-function mmul(m, v) {
-  return m.map(j => dot(j, v))
-}
-
-</script>
+  </script>
 
 </body>
-  </html>
+
+</html>
