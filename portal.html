@@ -46,7 +46,7 @@
 
     ////// Rendering ////////
     const scene = union([
-      $(obj(box([1.1, .8, 1]), magenta), rot([1, 1, 0], 1), move([-.5, -.5, -6])),
+      $(obj(box([1.1, .8, 1]), magenta), rot([1, 1, 0], .8), move([-.5, -.5, -6])),
       $(obj(sphere, cyan), scale(1.2), move([.3, .8, -6])),
       $(obj(torus([1, .4]), yellow), rot([1, 0, 0], -.5), move([0.5, -.5, -6]))
     ])
@@ -69,13 +69,17 @@
               const x = j % rx
               const y = Math.floor(j / rx)
 
-              const ray = norm([
-                + ((x + .5) / rx - .5),
-                - ((y + .5) / ry - .5) * (ry / rx),
-                -this.focal
-              ])
-              const color = this.fragment(scene, ray)
-              canvas.paint(x, y, color)
+              const colors = []
+              for (const [dx, dy] of [[.87, .5], [-.87, .5], [0, -1]]) {
+                const ray = norm([
+                  + ((x + .5 + dx / 4) / rx - .5),
+                  - ((y + .5 + dy / 4) / ry - .5) * (ry / rx),
+                  -this.focal
+                ])
+                colors.push(this.fragment(scene, ray))
+              }
+
+              canvas.paint(x, y, mix(colors))
 
               resolve()
             }
@@ -86,24 +90,35 @@
       fragment(scene, ray) {
         let point = [0, 0, 0]
         let dist = 0
+
         while (dist < this.maxdist) {
           const [d, m] = scene(point)
+
           if (d < 0.001) {
-            const e = 0.0001
-            const de = ve => scene(add(point, ve))[0]
-            const n = norm([
-              de([e, 0, 0]) - de([-e, 0, 0]),
-              de([0, e, 0]) - de([0, -e, 0]),
-              de([0, 0, e]) - de([0, 0, -e])
-            ])
-            const f = dot(ray, neg(n)) * this.dimming + (1 - this.dimming)
-            return mul(m, f)
+            return this.shade(scene, m, point, ray)
           }
+
           dist += d
           point = add(point, mul(ray, d))
         }
 
         return [0, 0, 0]
+      }
+
+      shade(scene, m, point, ray) {
+        const n = this.normal(scene, point)
+        const f = (dot(ray, neg(n)) - 1) * this.dimming + 1
+        return mul(m, f)
+      }
+
+      normal(scene, point) {
+        const e = 0.0001
+        const de = ve => scene(add(point, ve))[0]
+        return norm([
+          de([e, 0, 0]) - de([-e, 0, 0]),
+          de([0, e, 0]) - de([0, -e, 0]),
+          de([0, 0, e]) - de([0, 0, -e])
+        ])
       }
     }
 
@@ -167,16 +182,23 @@
       const [x, y, z] = norm(u)
       const c = Math.cos(r)
       const s = Math.sin(r)
+      const ci = 1 - c
 
       return [
-        [x * x * (1 - c) + c, x * y * (1 - c) - z * s, x * z * (1 - c) + y * s],
-        [x * y * (1 - c) + z * s, y * y * (1 - c) + c, y * z * (1 - c) - x * s],
-        [x * z * (1 - c) - y * s, y * z * (1 - c) + x * s, z * z * (1 - c) + c]
+        [x * x * ci + c, x * y * ci - z * s, x * z * ci + y * s],
+        [x * y * ci + z * s, y * y * ci + c, y * z * ci - x * s],
+        [x * z * ci - y * s, y * z * ci + x * s, z * z * ci + c]
       ]
     }
 
     function mmul(m, v) {
       return m.map(j => dot(j, v))
+    }
+
+    function mix(colors) {
+      const f = 1 / colors.length
+      return colors[0].map((_, i) =>
+        Math.sqrt(colors.reduce((a, c) => a + c[i] * c[i] * f, 0)))
     }
 
   </script>
