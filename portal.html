@@ -79,10 +79,6 @@
         this.pos = pos || [0, 0, 0]
         this.rot = rot || rot3([1, 0, 0], 0)
         this.focal = focal || 1
-        this.maxdist = 100
-        this.dimming = .8
-        this.res = .001
-        this.bg = [0, 0, 0, 0, 0]
       }
 
       stop() {
@@ -91,6 +87,7 @@
 
       async render(scene, canvas) {
         const [rx, ry] = canvas.resolution
+        const pixel = 1.4 / (rx * this.focal)
 
         const chunk = 500
         for (let i = 0; !this.stopped && i < rx * ry; i += chunk) {
@@ -100,9 +97,10 @@
               const x = j % rx
               const y = Math.floor(j / rx)
 
-              const colors = this.rays(x, y, rx, ry)
-                .map(ray => this.fragment(scene, ray, this.pos))
-              canvas.paint(x, y, mix(colors))
+              const materials = this.rays(x, y, rx, ry)
+                .map(ray => new Marcher(this, scene, pixel)
+                  .march(this.pos, ray))
+              canvas.paint(x, y, mix(materials))
             }
             resolve()
           }))
@@ -117,45 +115,60 @@
           -this.focal
         ])))
       }
+    }
 
-      fragment(scene, ray, point, dist = 0) {
-        let [m, p, d, n] = this.march(scene, ray, point, dist)
+    class Marcher {
 
-        if (!m) return this.bg
+      constructor(camera, scene, pixel) {
+        this.camera = camera
+        this.scene = scene
+        this.pixel = pixel
 
-        if (m[4]) {
-          const refl = this.reflect(scene, ray, p, d, n)
-          m = mix2(refl, m, m[4])
-        }
+        this.maxtravel = 100
+        this.dimming = .8
+        this.bg = [0, 0, 0, 0, 0]
 
-        return this.shade(scene, m, n, ray)
+        this.travel = 0
       }
 
-      march(scene, ray, origin, dist) {
-        let point = origin
-        while (!this.stopped && dist < this.maxdist) {
-          const [d, m] = scene(point)
+      mindist() {
+        return this.pixel * this.travel / 10
+      }
 
-          if (d < this.res * dist) {
-            const n = this.normal(scene, point)
-            return [m, point, dist, n]
+      march(point, ray) {
+        while (!this.camera.stopped && this.travel < this.maxtravel) {
+          const [d, m] = this.scene(point)
+
+          if (d < this.mindist()) {
+            return this.fragment(m, point, ray)
           }
 
-          dist += d
+          this.travel += d
           point = add(point, mul(ray, d))
         }
 
-        return []
+        return this.bg
       }
 
-      shade(scene, m, n, ray) {
+      fragment(m, point, ray) {
+        const n = this.normal(point)
+
+        if (m[4]) {
+          const refl = this.reflect(n, point, ray)
+          m = mix2(refl, m, m[4])
+        }
+
+        return this.shade(m, n, ray)
+      }
+
+      shade(m, n, ray) {
         const f = (dot(ray, neg(n)) - 1) * this.dimming + 1
         return mix2(m, this.bg, f)
       }
 
-      normal(scene, point) {
-        const e = this.res / 10
-        const de = ve => scene(add(point, ve))[0]
+      normal(point) {
+        const e = this.pixel / 100
+        const de = ve => this.scene(add(point, ve))[0]
         return norm([
           de([e, 0, 0]) - de([-e, 0, 0]),
           de([0, e, 0]) - de([0, -e, 0]),
@@ -163,10 +176,10 @@
         ])
       }
 
-      reflect(scene, ray, p, d, n) {
-        const reflr = add(ray, neg(mul(n, 2 * dot(ray, n))))
-        const reflp = add(p, mul(n, this.res * 2 * d))
-        return this.fragment(scene, reflr, reflp, d)
+      reflect(n, point, ray) {
+        point = add(point, mul(n, this.mindist() * 1.1))
+        ray = add(ray, neg(mul(n, 2 * dot(ray, n))))
+        return this.march(point, ray)
       }
     }
 
@@ -191,8 +204,11 @@
     let camera = new Camera()
 
     async function render(cam) {
-      for (const prog of [20, 10, 5, 2, 1])
+      for (const prog of [20, 10, 5, 2, 1]) {
+        const start = Date.now()
         await cam.render(scene, new Canvas(prog))
+        console.log(prog, (Date.now() - start) / 1000)
+      }
     }
 
     render(camera)
@@ -304,13 +320,13 @@
           dot(m1[i], m2.map(r => r[k]))))
     }
 
-    function mix(colors, ratios = null) {
-      ratios ||= colors.map(() => 1)
+    function mix(materials, ratios = null) {
+      ratios ||= materials.map(() => 1)
 
       const rs = sum(ratios)
-      return colors[0].map((_, i) =>
-        Math.sqrt(sum(colors.map((c, n) =>
-          c[i] * c[i] * ratios[n] / rs))))
+      return materials[0].map((_, i) =>
+        Math.sqrt(sum(materials.map((m, j) =>
+          m[i] * m[i] * ratios[j] / rs))))
     }
 
     function mix2(a, b, r) {
