@@ -10,6 +10,8 @@
     Sorry, your browser does not support canvas.
   </canvas>
 
+  <div id="buttons"></div>
+
   <script>
 
     ////// Shapes ////////
@@ -53,7 +55,7 @@
 
     const move = v => f => p => f(add(p, neg(v)))
 
-    const rot = (u, r) => f => p => f(mmul(rot3(u, r), p))
+    const rot = (u, r) => f => p => f(mdot(rot3(u, r), p))
 
     const scale = s => f => p => (([d, m]) => [d * s, m])(f(mul(p, 1 / s)))
 
@@ -112,7 +114,7 @@
 
       rays(x, y, rx, ry) {
         const subs = [[.87, .5], [-.87, .5], [0, -1]]
-        return subs.map(([dx, dy]) => mmul(this.rot, norm([
+        return subs.map(([dx, dy]) => mdot(this.rot, norm([
           + ((x + .5 + dx / 4) / rx - .5),
           - ((y + .5 + dy / 4) / ry - .5) * (ry / rx),
           -this.focal
@@ -201,27 +203,54 @@
     ////// Control ///////
     const cam = {
       pos: [0, 0, 0],
-      focal: 1
+      rot: rot3([1, 0, 0], 0),
+      foc: 1,
+      move: v => cam.pos = add(cam.pos, mdot(cam.rot, v)),
+      rotate: (u, r) => cam.rot = mmul(cam.rot, rot3(u, r))
     }
 
-    const actions = {
-      d: () => cam.pos[0] = cam.pos[0] + .1,
-      a: () => cam.pos[0] = cam.pos[0] - .1,
-      w: () => cam.pos[1] = cam.pos[1] + .1,
-      s: () => cam.pos[1] = cam.pos[1] - .1,
-      q: () => cam.pos[2] = cam.pos[2] + .1,
-      e: () => cam.pos[2] = cam.pos[2] - .1,
-      r: () => cam.focal *= 1.1,
-      f: () => cam.focal /= 1.1,
+    const step = .3
+    const turn = .1
+    const actions = [
+      ['a', 'left', () => cam.move([-step, 0, 0])],
+      ['d', 'right', () => cam.move([step, 0, 0])],
+      ['w', 'up', () => cam.move([0, step, 0])],
+      ['s', 'down', () => cam.move([0, -step, 0])],
+      ['q', 'backward', () => cam.move([0, 0, step])],
+      ['e', 'forward', () => cam.move([0, 0, -step])],
+      ['j', 'turn left', () => cam.rotate([0, 1, 0], turn)],
+      ['l', 'turn right', () => cam.rotate([0, 1, 0], -turn)],
+      ['i', 'turn up', () => cam.rotate([1, 0, 0], turn)],
+      ['k', 'turn down', () => cam.rotate([1, 0, 0], -turn)],
+      ['u', 'turn counter', () => cam.rotate([0, 0, 1], turn)],
+      ['o', 'turn clockwise', () => cam.rotate([0, 0, 1], -turn)],
+      ['r', 'zoom in', () => cam.foc *= 1.1],
+      ['f', 'zoom out', () => cam.foc /= 1.1],
+    ]
+
+    const buttons = document.getElementById('buttons')
+    for (const [key, caption, action] of actions) {
+      const button = document.createElement('button')
+      button.innerText = `${caption} (${key})`
+      button.style.width = '15em'
+      button.style.height = '5em'
+      button.style.backgroundColor = '#111'
+      button.style.border = '1px solid grey'
+      button.style.color = 'grey'
+      button.onclick = () => perform(action)
+      buttons.appendChild(button)
+    }
+
+    function perform(action) {
+      camera.stop()
+      action()
+      camera = new Camera(cam.pos, cam.rot, cam.foc)
+      render()
     }
 
     document.onkeydown = ({ key }) => {
-      if (!(key in actions)) return
-
-      camera.stop()
-      actions[key]()
-      camera = new Camera(cam.pos, null, cam.focal)
-      render()
+      const action = actions.find(([k]) => k == key)
+      if (action) perform(action[2])
     }
 
     /////// Math ////////
@@ -268,8 +297,14 @@
       ]
     }
 
-    function mmul(m, v) {
+    function mdot(m, v) {
       return m.map(j => dot(j, v))
+    }
+
+    function mmul(m1, m2) {
+      return m1.map((_, i) =>
+        m2[0].map((_, k) =>
+          dot(m1[i], m2.map(r => r[k]))))
     }
 
     function mix(colors, ratios = null) {
