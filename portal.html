@@ -26,12 +26,14 @@
     }
 
     ////// Materials ////////
-    const cyan = () => [0, 1, 1]
-    const magenta = () => [1, 0, 1]
-    const yellow = () => [1, 1, 0]
-    const red = () => [1, 0, 0]
-    const green = () => [0, 1, 0]
-    const blue = () => [0, 0, 1]
+    const cyan = () => [0, 1, 1, 0, 0]
+    const magenta = () => [1, 0, 1, 0, 0]
+    const yellow = () => [1, 1, 0, 0, 0]
+    const red = () => [1, 0, 0, 0, 0]
+    const green = () => [0, 1, 0, 0, 0]
+    const blue = () => [0, 0, 1, 0, 0]
+    const transp = (t, m) => p => (([r, g, b, _, s]) => [r, g, b, t, s])(m(p))
+    const refl = (s, m) => p => (([r, g, b, t, _]) => [r, g, b, t, s])(m(p))
 
     ////// Construction ////////
     const obj = (sdf, mat) => p => [sdf(p), mat(p)]
@@ -45,7 +47,7 @@
       const h = clamp(.5 + .5 * (d2 - d1) / k, 0, 1)
       return [
         fade(d2, d1, h) - k * h * (1 - h),
-        mix([m1, m2], [h, 1 - h])
+        mix2(m1, m2, h)
       ]
     }
 
@@ -62,37 +64,45 @@
     ////// Rendering ////////
     let scene = sunion(.1,
       sunion(.3,
-        $(obj(box([1, .6, .7]), magenta),
+        $(obj(box([1, .6, .7]), transp(.5, magenta)),
           round(.3),
           rot([1, 1, 0], .8),
           move([-.5, -.5, -6])),
         $(obj(sphere, cyan),
           scale(1.2),
           move([.3, .8, -6]))),
-      $(obj(torus([1.2, .3]), yellow),
+      $(obj(torus([1.2, .3]), refl(.3, yellow)),
         rot([1, 0, 0], -.5),
         move([0.5, -.5, -6])))
 
     class Camera {
-      constructor() {
-        this.focal = 1
+      constructor(pos, rot, focal) {
+        this.pos = pos || [0, 0, 0]
+        this.rot = rot || rot3([1, 0, 0], 0)
+        this.focal = focal || 1
         this.maxdist = 100
-        this.dimming = .9
+        this.dimming = .8
+        this.res = .001
+        this.bg = [0, 0, 0, 0, 0]
+      }
+
+      stop() {
+        this.stopped = true
       }
 
       async render(scene, canvas) {
         const [rx, ry] = canvas.resolution
 
         const chunk = 1000
-        for (let i = 0; i < rx * ry; i += chunk) {
+        for (let i = 0; !this.stopped && i < rx * ry; i += chunk) {
           const c = i
           await new Promise(resolve => setTimeout(() => {
-            for (let j = c; j < c + chunk; j++) {
+            for (let j = c; !this.stopped && j < c + chunk; j++) {
               const x = j % rx
               const y = Math.floor(j / rx)
 
               const colors = this.rays(x, y, rx, ry)
-                .map(ray => this.fragment(scene, ray))
+                .map(ray => this.fragment(scene, ray, this.pos))
               canvas.paint(x, y, mix(colors))
               resolve()
             }
@@ -102,44 +112,62 @@
 
       rays(x, y, rx, ry) {
         const subs = [[.87, .5], [-.87, .5], [0, -1]]
-        return subs.map(([dx, dy]) => norm([
+        return subs.map(([dx, dy]) => mmul(this.rot, norm([
           + ((x + .5 + dx / 4) / rx - .5),
           - ((y + .5 + dy / 4) / ry - .5) * (ry / rx),
           -this.focal
-        ]))
+        ])))
       }
 
-      fragment(scene, ray) {
-        let dist = 0
+      fragment(scene, ray, point, dist = 0) {
+        let [m, p, d, n] = this.march(scene, ray, point, dist)
 
-        while (dist < this.maxdist) {
-          const point = mul(ray, dist)
-          const [d, m] = scene(point)
-          dist += d
+        if (!m) return this.bg
 
-          if (d < 0.001 * dist) {
-            return this.shade(scene, m, point, ray)
-          }
+        if (m[4]) {
+          const refl = this.reflect(scene, ray, p, d, n)
+          m = mix2(refl, m, m[4])
         }
 
-        return [0, 0, 0]
+        return this.shade(scene, m, n, ray)
       }
 
-      shade(scene, m, point, ray) {
-        const n = this.normal(scene, point)
+      march(scene, ray, origin, dist) {
+        let point = origin
+        while (dist < this.maxdist) {
+          const [d, m] = scene(point)
+
+          if (d < this.res * dist) {
+            const n = this.normal(scene, point)
+            return [m, point, dist, n]
+          }
+
+          dist += d
+          point = add(point, mul(ray, d))
+        }
+
+        return []
+      }
+
+      shade(scene, m, n, ray) {
         const f = (dot(ray, neg(n)) - 1) * this.dimming + 1
-        return mix([m, [0, 0, 0]], [f, 1 - f])
-        return mul(m, f)
+        return mix2(m, this.bg, f)
       }
 
       normal(scene, point) {
-        const e = 0.0001
+        const e = this.res / 10
         const de = ve => scene(add(point, ve))[0]
         return norm([
           de([e, 0, 0]) - de([-e, 0, 0]),
           de([0, e, 0]) - de([0, -e, 0]),
           de([0, 0, e]) - de([0, 0, -e])
         ])
+      }
+
+      reflect(scene, ray, p, d, n) {
+        const reflr = add(ray, neg(mul(n, 2 * dot(ray, n))))
+        const reflp = add(p, mul(n, this.res * 2 * d))
+        return this.fragment(scene, reflr, reflp, d)
       }
     }
 
@@ -161,12 +189,40 @@
       }
     }
 
-    async function render(camera) {
+    let camera = new Camera()
+
+    async function render() {
       for (const prog of [20, 10, 5, 2, 1])
         await camera.render(scene, new Canvas(prog))
     }
 
-    render(new Camera())
+    render()
+
+    ////// Control ///////
+    const cam = {
+      pos: [0, 0, 0],
+      focal: 1
+    }
+
+    const actions = {
+      d: () => cam.pos[0] = cam.pos[0] + .1,
+      a: () => cam.pos[0] = cam.pos[0] - .1,
+      w: () => cam.pos[1] = cam.pos[1] + .1,
+      s: () => cam.pos[1] = cam.pos[1] - .1,
+      q: () => cam.pos[2] = cam.pos[2] + .1,
+      e: () => cam.pos[2] = cam.pos[2] - .1,
+      r: () => cam.focal *= 1.1,
+      f: () => cam.focal /= 1.1,
+    }
+
+    document.onkeydown = ({ key }) => {
+      if (!(key in actions)) return
+
+      camera.stop()
+      actions[key]()
+      camera = new Camera(cam.pos, null, cam.focal)
+      render()
+    }
 
     /////// Math ////////
 
@@ -223,6 +279,10 @@
       return colors[0].map((_, i) =>
         Math.sqrt(sum(colors.map((c, n) =>
           c[i] * c[i] * ratios[n] / rs))))
+    }
+
+    function mix2(a, b, r) {
+      return mix([a, b], [r, 1 - r])
     }
 
     function clamp(v, l, h) {
