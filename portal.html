@@ -3,332 +3,332 @@
 
 <body style="background-color: #111">
 
-  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-  <script>eruda.init();</script>
+	<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+	<script>eruda.init();</script>
 
-  <canvas id="myCanvas" width="800" height="600">
-    Sorry, your browser does not support canvas.
-  </canvas>
+	<canvas id="myCanvas" width="800" height="600">
+		Sorry, your browser does not support canvas.
+	</canvas>
 
-  <div id="buttons"></div>
+	<div id="buttons"></div>
 
-  <script>
+	<script>
 
-    ////// Shapes ////////
-    const sphere = p => len(p) - 1
+		////// Shapes ////////
+		const sphere = p => len(p) - 1
 
-    const box = b => p => {
-      const q = add(p.map(Math.abs), neg(b))
-      return len(q.map(n => Math.max(n, 0))) + Math.min(Math.max(...q, 0), 0);
-    }
+		const box = b => p => {
+			const q = add(p.map(Math.abs), neg(b))
+			return len(q.map(n => Math.max(n, 0))) + Math.min(Math.max(...q, 0), 0);
+		}
 
-    const torus = ([tx, ty]) => ([x, y, z]) => {
-      const q = [len([x, z]) - tx, y]
-      return len(q) - ty
-    }
+		const torus = ([tx, ty]) => ([x, y, z]) => {
+			const q = [len([x, z]) - tx, y]
+			return len(q) - ty
+		}
 
-    ////// Materials ////////
-    const cyan = () => [0, 1, 1, 0, 0]
-    const magenta = () => [1, 0, 1, 0, 0]
-    const yellow = () => [1, 1, 0, 0, 0]
-    const red = () => [1, 0, 0, 0, 0]
-    const green = () => [0, 1, 0, 0, 0]
-    const blue = () => [0, 0, 1, 0, 0]
-    const transp = (t, m) => p => (([r, g, b, _, s]) => [r, g, b, t, s])(m(p))
-    const refl = (s, m) => p => (([r, g, b, t, _]) => [r, g, b, t, s])(m(p))
+		////// Materials ////////
+		const cyan = () => [0, 1, 1, 0, 0]
+		const magenta = () => [1, 0, 1, 0, 0]
+		const yellow = () => [1, 1, 0, 0, 0]
+		const red = () => [1, 0, 0, 0, 0]
+		const green = () => [0, 1, 0, 0, 0]
+		const blue = () => [0, 0, 1, 0, 0]
+		const transp = (t, m) => p => (([r, g, b, _, s]) => [r, g, b, t, s])(m(p))
+		const refl = (s, m) => p => (([r, g, b, t, _]) => [r, g, b, t, s])(m(p))
 
-    ////// Construction ////////
-    const obj = (sdf, mat) => p => [sdf(p), mat(p)]
+		////// Construction ////////
+		const obj = (sdf, mat) => p => [sdf(p), mat(p)]
 
-    const union = (...objs) => p =>
-      objs.reduce((a, c) => !a || c(p)[0] < a[0] ? c(p) : a, null)
+		const union = (...objs) => p =>
+			objs.reduce((a, c) => !a || c(p)[0] < a[0] ? c(p) : a, null)
 
-    const sunion = (k, o1, o2) => p => {
-      const [d1, m1] = o1(p)
-      const [d2, m2] = o2(p)
-      const h = clamp(.5 + .5 * (d2 - d1) / k, 0, 1)
-      return [
-        fade(d2, d1, h) - k * h * (1 - h),
-        mix2(m1, m2, h)
-      ]
-    }
+		const sunion = (k, o1, o2) => p => {
+			const [d1, m1] = o1(p)
+			const [d2, m2] = o2(p)
+			const h = clamp(.5 + .5 * (d2 - d1) / k, 0, 1)
+			return [
+				fade(d2, d1, h) - k * h * (1 - h),
+				mix2(m1, m2, h)
+			]
+		}
 
-    const move = v => f => p => f(add(p, neg(v)))
+		const move = v => f => p => f(add(p, neg(v)))
 
-    const rot = (u, r) => f => p => f(mdot(rot3(u, r), p))
+		const rot = (u, r) => f => p => f(mdot(rot3(u, r), p))
 
-    const scale = s => f => p => (([d, m]) => [d * s, m])(f(mul(p, 1 / s)))
+		const scale = s => f => p => (([d, m]) => [d * s, m])(f(mul(p, 1 / s)))
 
-    const round = r => f => p => (([d, m]) => [d - r, m])(f(p))
+		const round = r => f => p => (([d, m]) => [d - r, m])(f(p))
 
-    const $ = (i, ...p) => p.reduce((a, c) => c(a), i)
+		const $ = (i, ...p) => p.reduce((a, c) => c(a), i)
 
-    ////// Rendering ////////
-    let scene = sunion(.1,
-      sunion(.3,
-        $(obj(box([1, .6, .7]), transp(.5, magenta)),
-          round(.3),
-          rot([1, 1, 0], .8),
-          move([-.5, -.5, -6])),
-        $(obj(sphere, cyan),
-          scale(1.2),
-          move([.3, .8, -6]))),
-      $(obj(torus([1.2, .3]), refl(.3, yellow)),
-        rot([1, 0, 0], -.5),
-        move([0.5, -.5, -6])))
+		////// Rendering ////////
+		let scene = sunion(.1,
+			sunion(.3,
+				$(obj(box([1, .6, .7]), transp(.5, magenta)),
+					round(.3),
+					rot([1, 1, 0], .8),
+					move([-.5, -.5, -6])),
+				$(obj(sphere, cyan),
+					scale(1.2),
+					move([.3, .8, -6]))),
+			$(obj(torus([1.2, .3]), refl(.3, yellow)),
+				rot([1, 0, 0], -.5),
+				move([0.5, -.5, -6])))
 
-    class Camera {
-      constructor(pos, rot, focal) {
-        this.pos = pos || [0, 0, 0]
-        this.rot = rot || rot3([1, 0, 0], 0)
-        this.focal = focal || 1
-        this.maxdist = 100
-        this.dimming = .8
-        this.res = .001
-        this.bg = [0, 0, 0, 0, 0]
-      }
+		class Camera {
+			constructor(pos, rot, focal) {
+				this.pos = pos || [0, 0, 0]
+				this.rot = rot || rot3([1, 0, 0], 0)
+				this.focal = focal || 1
+				this.maxdist = 100
+				this.dimming = .8
+				this.res = .001
+				this.bg = [0, 0, 0, 0, 0]
+			}
 
-      stop() {
-        this.stopped = true
-      }
+			stop() {
+				this.stopped = true
+			}
 
-      async render(scene, canvas) {
-        const [rx, ry] = canvas.resolution
+			async render(scene, canvas) {
+				const [rx, ry] = canvas.resolution
 
-        const chunk = 1000
-        for (let i = 0; !this.stopped && i < rx * ry; i += chunk) {
-          const c = i
-          await new Promise(resolve => setTimeout(() => {
-            for (let j = c; !this.stopped && j < c + chunk; j++) {
-              const x = j % rx
-              const y = Math.floor(j / rx)
+				const chunk = 500
+				for (let i = 0; !this.stopped && i < rx * ry; i += chunk) {
+					const c = i
+					await new Promise(resolve => setTimeout(() => {
+						for (let j = c; !this.stopped && j < c + chunk; j++) {
+							const x = j % rx
+							const y = Math.floor(j / rx)
 
-              const colors = this.rays(x, y, rx, ry)
-                .map(ray => this.fragment(scene, ray, this.pos))
-              canvas.paint(x, y, mix(colors))
-              resolve()
-            }
-          }))
-        }
-      }
+							const colors = this.rays(x, y, rx, ry)
+								.map(ray => this.fragment(scene, ray, this.pos))
+							canvas.paint(x, y, mix(colors))
+						}
+						resolve()
+					}))
+				}
+			}
 
-      rays(x, y, rx, ry) {
-        const subs = [[.87, .5], [-.87, .5], [0, -1]]
-        return subs.map(([dx, dy]) => mdot(this.rot, norm([
-          + ((x + .5 + dx / 4) / rx - .5),
-          - ((y + .5 + dy / 4) / ry - .5) * (ry / rx),
-          -this.focal
-        ])))
-      }
+			rays(x, y, rx, ry) {
+				const subs = [[.87, .5], [-.87, .5], [0, -1]]
+				return subs.map(([dx, dy]) => mdot(this.rot, norm([
+					+ ((x + .5 + dx / 4) / rx - .5),
+					- ((y + .5 + dy / 4) / ry - .5) * (ry / rx),
+					-this.focal
+				])))
+			}
 
-      fragment(scene, ray, point, dist = 0) {
-        let [m, p, d, n] = this.march(scene, ray, point, dist)
+			fragment(scene, ray, point, dist = 0) {
+				let [m, p, d, n] = this.march(scene, ray, point, dist)
 
-        if (!m) return this.bg
+				if (!m) return this.bg
 
-        if (m[4]) {
-          const refl = this.reflect(scene, ray, p, d, n)
-          m = mix2(refl, m, m[4])
-        }
+				if (m[4]) {
+					const refl = this.reflect(scene, ray, p, d, n)
+					m = mix2(refl, m, m[4])
+				}
 
-        return this.shade(scene, m, n, ray)
-      }
+				return this.shade(scene, m, n, ray)
+			}
 
-      march(scene, ray, origin, dist) {
-        let point = origin
-        while (dist < this.maxdist) {
-          const [d, m] = scene(point)
+			march(scene, ray, origin, dist) {
+				let point = origin
+				while (!this.stopped && dist < this.maxdist) {
+					const [d, m] = scene(point)
 
-          if (d < this.res * dist) {
-            const n = this.normal(scene, point)
-            return [m, point, dist, n]
-          }
+					if (d < this.res * dist) {
+						const n = this.normal(scene, point)
+						return [m, point, dist, n]
+					}
 
-          dist += d
-          point = add(point, mul(ray, d))
-        }
+					dist += d
+					point = add(point, mul(ray, d))
+				}
 
-        return []
-      }
+				return []
+			}
 
-      shade(scene, m, n, ray) {
-        const f = (dot(ray, neg(n)) - 1) * this.dimming + 1
-        return mix2(m, this.bg, f)
-      }
+			shade(scene, m, n, ray) {
+				const f = (dot(ray, neg(n)) - 1) * this.dimming + 1
+				return mix2(m, this.bg, f)
+			}
 
-      normal(scene, point) {
-        const e = this.res / 10
-        const de = ve => scene(add(point, ve))[0]
-        return norm([
-          de([e, 0, 0]) - de([-e, 0, 0]),
-          de([0, e, 0]) - de([0, -e, 0]),
-          de([0, 0, e]) - de([0, 0, -e])
-        ])
-      }
+			normal(scene, point) {
+				const e = this.res / 10
+				const de = ve => scene(add(point, ve))[0]
+				return norm([
+					de([e, 0, 0]) - de([-e, 0, 0]),
+					de([0, e, 0]) - de([0, -e, 0]),
+					de([0, 0, e]) - de([0, 0, -e])
+				])
+			}
 
-      reflect(scene, ray, p, d, n) {
-        const reflr = add(ray, neg(mul(n, 2 * dot(ray, n))))
-        const reflp = add(p, mul(n, this.res * 2 * d))
-        return this.fragment(scene, reflr, reflp, d)
-      }
-    }
+			reflect(scene, ray, p, d, n) {
+				const reflr = add(ray, neg(mul(n, 2 * dot(ray, n))))
+				const reflp = add(p, mul(n, this.res * 2 * d))
+				return this.fragment(scene, reflr, reflp, d)
+			}
+		}
 
-    class Canvas {
+		class Canvas {
 
-      constructor(factor = 1) {
-        const element = document.getElementById("myCanvas")
-        this.ctx = element.getContext("2d")
+			constructor(factor = 1) {
+				const element = document.getElementById("myCanvas")
+				this.ctx = element.getContext("2d")
 
-        this.size = [element.width, element.height]
-        this.resolution = mul(this.size, 1 / factor)
-      }
+				this.size = [element.width, element.height]
+				this.resolution = mul(this.size, 1 / factor)
+			}
 
-      paint(x, y, color) {
-        const [cw, ch] = [0, 1].map(i => this.size[i] / this.resolution[i])
-        const [r, g, b] = mul(color, 255).map(Math.round)
-        this.ctx.fillStyle = `rgb(${r} ${g} ${b})`
-        this.ctx.fillRect(x * cw, y * ch, cw, ch)
-      }
-    }
+			paint(x, y, color) {
+				const [cw, ch] = [0, 1].map(i => this.size[i] / this.resolution[i])
+				const [r, g, b] = mul(color, 255).map(Math.round)
+				this.ctx.fillStyle = `rgb(${r} ${g} ${b})`
+				this.ctx.fillRect(x * cw, y * ch, cw, ch)
+			}
+		}
 
-    let camera = new Camera()
+		let camera = new Camera()
 
-    async function render() {
-      for (const prog of [20, 10, 5, 2, 1])
-        await camera.render(scene, new Canvas(prog))
-    }
+		async function render(cam) {
+			for (const prog of [20, 10, 5, 2, 1])
+				await cam.render(scene, new Canvas(prog))
+		}
 
-    render()
+		render(camera)
 
-    ////// Control ///////
-    const cam = {
-      pos: [0, 0, 0],
-      rot: rot3([1, 0, 0], 0),
-      foc: 1,
-      move: v => cam.pos = add(cam.pos, mdot(cam.rot, v)),
-      rotate: (u, r) => cam.rot = mmul(cam.rot, rot3(u, r))
-    }
+		////// Control ///////
+		const cam = {
+			pos: [0, 0, 0],
+			rot: rot3([1, 0, 0], 0),
+			foc: 1,
+			move: v => cam.pos = add(cam.pos, mdot(cam.rot, v)),
+			rotate: (u, r) => cam.rot = mmul(cam.rot, rot3(u, r))
+		}
 
-    const step = .3
-    const turn = .1
-    const actions = [
-      ['a', 'left', () => cam.move([-step, 0, 0])],
-      ['d', 'right', () => cam.move([step, 0, 0])],
-      ['w', 'up', () => cam.move([0, step, 0])],
-      ['s', 'down', () => cam.move([0, -step, 0])],
-      ['q', 'backward', () => cam.move([0, 0, step])],
-      ['e', 'forward', () => cam.move([0, 0, -step])],
-      ['j', 'turn left', () => cam.rotate([0, 1, 0], turn)],
-      ['l', 'turn right', () => cam.rotate([0, 1, 0], -turn)],
-      ['i', 'turn up', () => cam.rotate([1, 0, 0], turn)],
-      ['k', 'turn down', () => cam.rotate([1, 0, 0], -turn)],
-      ['u', 'turn counter', () => cam.rotate([0, 0, 1], turn)],
-      ['o', 'turn clockwise', () => cam.rotate([0, 0, 1], -turn)],
-      ['r', 'zoom in', () => cam.foc *= 1.1],
-      ['f', 'zoom out', () => cam.foc /= 1.1],
-    ]
+		const step = .3
+		const turn = .1
+		const actions = [
+			['a', 'left', () => cam.move([-step, 0, 0])],
+			['d', 'right', () => cam.move([step, 0, 0])],
+			['w', 'up', () => cam.move([0, step, 0])],
+			['s', 'down', () => cam.move([0, -step, 0])],
+			['q', 'backward', () => cam.move([0, 0, step])],
+			['e', 'forward', () => cam.move([0, 0, -step])],
+			['j', 'turn left', () => cam.rotate([0, 1, 0], turn)],
+			['l', 'turn right', () => cam.rotate([0, 1, 0], -turn)],
+			['i', 'turn up', () => cam.rotate([1, 0, 0], turn)],
+			['k', 'turn down', () => cam.rotate([1, 0, 0], -turn)],
+			['u', 'turn counter', () => cam.rotate([0, 0, 1], turn)],
+			['o', 'turn clockwise', () => cam.rotate([0, 0, 1], -turn)],
+			['r', 'zoom in', () => cam.foc *= 1.1],
+			['f', 'zoom out', () => cam.foc /= 1.1],
+		]
 
-    const buttons = document.getElementById('buttons')
-    for (const [key, caption, action] of actions) {
-      const button = document.createElement('button')
-      button.innerText = `${caption} (${key})`
-      button.style.width = '15em'
-      button.style.height = '5em'
-      button.style.backgroundColor = '#111'
-      button.style.border = '1px solid grey'
-      button.style.color = 'grey'
-      button.onclick = () => perform(action)
-      buttons.appendChild(button)
-    }
+		const buttons = document.getElementById('buttons')
+		for (const [key, caption, action] of actions) {
+			const button = document.createElement('button')
+			button.innerText = `${caption} (${key})`
+			button.style.width = '15em'
+			button.style.height = '5em'
+			button.style.backgroundColor = '#111'
+			button.style.border = '1px solid grey'
+			button.style.color = 'grey'
+			button.onclick = () => perform(action)
+			buttons.appendChild(button)
+		}
 
-    function perform(action) {
-      camera.stop()
-      action()
-      camera = new Camera(cam.pos, cam.rot, cam.foc)
-      render()
-    }
+		function perform(action) {
+			camera.stop()
+			action()
+			camera = new Camera(cam.pos, cam.rot, cam.foc)
+			render(camera)
+		}
 
-    document.onkeydown = ({ key }) => {
-      const action = actions.find(([k]) => k == key)
-      if (action) perform(action[2])
-    }
+		document.onkeydown = ({ key }) => {
+			const action = actions.find(([k]) => k == key)
+			if (action) perform(action[2])
+		}
 
-    /////// Math ////////
+		/////// Math ////////
 
-    function norm(v) {
-      const l = len(v)
-      return v.map(n => n / l)
-    }
+		function norm(v) {
+			const l = len(v)
+			return v.map(n => n / l)
+		}
 
-    function len(v) {
-      return Math.sqrt(sum(v.map(n => n * n)))
-    }
+		function len(v) {
+			return Math.sqrt(sum(v.map(n => n * n)))
+		}
 
-    function add(...vs) {
-      return vs[0].map((_, i) => sum(vs.map(a => a[i])))
-    }
+		function add(...vs) {
+			return vs[0].map((_, i) => sum(vs.map(a => a[i])))
+		}
 
-    function sum(v) {
-      return v.reduce((a, c) => a + c, 0)
-    }
+		function sum(v) {
+			return v.reduce((a, c) => a + c, 0)
+		}
 
-    function mul(v, f) {
-      return v.map(n => n * f)
-    }
+		function mul(v, f) {
+			return v.map(n => n * f)
+		}
 
-    function neg(v) {
-      return mul(v, -1)
-    }
+		function neg(v) {
+			return mul(v, -1)
+		}
 
-    function dot(a, b) {
-      return sum(a.map((_, i) => a[i] * b[i]))
-    }
+		function dot(a, b) {
+			return sum(a.map((_, i) => a[i] * b[i]))
+		}
 
-    function rot3(u, r) {
-      const [x, y, z] = norm(u)
-      const c = Math.cos(r)
-      const s = Math.sin(r)
-      const ci = 1 - c
+		function rot3(u, r) {
+			const [x, y, z] = norm(u)
+			const c = Math.cos(r)
+			const s = Math.sin(r)
+			const ci = 1 - c
 
-      return [
-        [x * x * ci + c, x * y * ci - z * s, x * z * ci + y * s],
-        [x * y * ci + z * s, y * y * ci + c, y * z * ci - x * s],
-        [x * z * ci - y * s, y * z * ci + x * s, z * z * ci + c]
-      ]
-    }
+			return [
+				[x * x * ci + c, x * y * ci - z * s, x * z * ci + y * s],
+				[x * y * ci + z * s, y * y * ci + c, y * z * ci - x * s],
+				[x * z * ci - y * s, y * z * ci + x * s, z * z * ci + c]
+			]
+		}
 
-    function mdot(m, v) {
-      return m.map(j => dot(j, v))
-    }
+		function mdot(m, v) {
+			return m.map(j => dot(j, v))
+		}
 
-    function mmul(m1, m2) {
-      return m1.map((_, i) =>
-        m2[0].map((_, k) =>
-          dot(m1[i], m2.map(r => r[k]))))
-    }
+		function mmul(m1, m2) {
+			return m1.map((_, i) =>
+				m2[0].map((_, k) =>
+					dot(m1[i], m2.map(r => r[k]))))
+		}
 
-    function mix(colors, ratios = null) {
-      ratios ||= colors.map(() => 1)
+		function mix(colors, ratios = null) {
+			ratios ||= colors.map(() => 1)
 
-      const rs = sum(ratios)
-      return colors[0].map((_, i) =>
-        Math.sqrt(sum(colors.map((c, n) =>
-          c[i] * c[i] * ratios[n] / rs))))
-    }
+			const rs = sum(ratios)
+			return colors[0].map((_, i) =>
+				Math.sqrt(sum(colors.map((c, n) =>
+					c[i] * c[i] * ratios[n] / rs))))
+		}
 
-    function mix2(a, b, r) {
-      return mix([a, b], [r, 1 - r])
-    }
+		function mix2(a, b, r) {
+			return mix([a, b], [r, 1 - r])
+		}
 
-    function clamp(v, l, h) {
-      return Math.min(Math.max(v, l), h)
-    }
+		function clamp(v, l, h) {
+			return Math.min(Math.max(v, l), h)
+		}
 
-    function fade(l, h, t) {
-      return l + (h - l) * t
-    }
+		function fade(l, h, t) {
+			return l + (h - l) * t
+		}
 
-  </script>
+	</script>
 
 </body>
 
