@@ -184,6 +184,8 @@
     }
 
     class Canvas {
+      static state = 'up'
+      static last = null
 
       constructor(factor = 1) {
         const element = document.getElementById("myCanvas")
@@ -191,6 +193,30 @@
 
         this.size = [element.width, element.height]
         this.resolution = mul(this.size, 1 / factor)
+
+        const at = e => [e.clientX, e.clientY]
+
+        element.onmousedown = e => {
+          Canvas.state = 'down'
+          Canvas.last = at(e)
+        }
+
+        element.onmouseup = e => {
+          if (Canvas.state == 'down') {
+            const now = at(e)
+            clicked(now, now.map(v => Math.floor(v / factor) - 1))
+          }
+          Canvas.state = 'up'
+        }
+
+        element.onmousemove = e => {
+          if (Canvas.state == 'up') return
+          Canvas.state = 'drag'
+
+          const now = at(e)
+          dragged(Canvas.last, now)
+          Canvas.last = now
+        }
       }
 
       paint(x, y, color) {
@@ -223,7 +249,7 @@
     }
 
     const step = .3
-    const turn = .1
+    const turn = .05
     const actions = [
       ['a', 'left', () => cam.move([-step, 0, 0])],
       ['d', 'right', () => cam.move([step, 0, 0])],
@@ -264,6 +290,19 @@
     document.onkeydown = ({ key }) => {
       const action = actions.find(([k]) => k == key)
       if (action) perform(action[2])
+    }
+
+    function clicked(c, p) {
+      console.log('clicked', c, p)
+    }
+
+    function dragged(a, b) {
+      const [x, y] = add(b, neg(a))
+      const u = [y, x, 0]
+      const r = -len(u) / 500
+      if (!r) return
+
+      perform(() => cam.rotate(u, r))
     }
 
     /////// Math ////////
