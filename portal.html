@@ -71,7 +71,7 @@
 
     ////// Rendering ////////
     let scene = union(
-      $(obj(box([.4, 1, .6]), magenta),
+      $(obj(box([.4, 1, .6]), refl(.2, magenta)),
         rot([1, 0, 0], -.6),
         move([-1.8, 0, -6])),
       $(obj(sphere, refl(.2, cyan)),
@@ -130,11 +130,13 @@
         this.scene = scene
         this.pixel = pixel
 
+        this.maxreflections = 5
         this.maxtravel = 100
         this.dimming = .8
         this.bg = [0, 0, 0, 0, 0]
 
         this.travel = 0
+        this.reflections = 0
       }
 
       mindist() {
@@ -159,7 +161,7 @@
       fragment(m, point, ray) {
         const n = this.normal(point)
 
-        if (m[4]) {
+        if (m[4] && this.reflections < this.maxreflections) {
           const refl = this.reflect(n, point, ray)
           m = mix2(refl, m, m[4])
         }
@@ -183,6 +185,7 @@
       }
 
       reflect(n, point, ray) {
+        this.reflections++
         point = add(point, mul(n, this.mindist() * 1.1))
         ray = add(ray, neg(mul(n, 2 * dot(ray, n))))
         return this.march(point, ray)
