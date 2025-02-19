@@ -132,7 +132,7 @@
 
         this.maxreflections = 5
         this.maxtravel = 100
-        this.dimming = .8
+        this.dimming = .7
         this.bg = [0, 0, 0, 0, 0]
 
         this.travel = 0
@@ -146,6 +146,8 @@
       march(point, ray) {
         while (!this.camera.stopped && this.travel < this.maxtravel) {
           const [d, m] = this.scene(point)
+
+          if (d <= 0) return m
 
           if (d < this.mindist()) {
             return this.fragment(m, point, ray)
@@ -262,7 +264,8 @@
       rot: rot3([1, 0, 0], 0),
       foc: 1,
       move: v => cam.pos = add(cam.pos, mdot(cam.rot, v)),
-      rotate: (u, r) => cam.rot = mmul(cam.rot, rot3(u, r))
+      rotate: (u, r) => cam.rot = mmul(cam.rot, rot3(u, r)),
+      state: 'rotate'
     }
 
     const step = .3
@@ -282,6 +285,9 @@
       ['o', 'turn clockwise', () => cam.rotate([0, 0, 1], -turn)],
       ['r', 'zoom in', () => cam.foc *= 1.1],
       ['f', 'zoom out', () => cam.foc /= 1.1],
+      ['x', 'rotate', () => cam.state = 'rotate'],
+      ['c', 'pan', () => cam.state = 'pan'],
+      ['v', 'walk', () => cam.state = 'walk'],
     ]
 
     const buttons = document.getElementById('buttons')
@@ -314,13 +320,23 @@
     }
 
     function dragged(a, b) {
-      console.log('dragged', a, b)
       const [x, y] = add(b, neg(a))
-      const u = [y, x, 0]
-      const r = -len(u) / 500
-      if (!r) return
 
-      perform(() => cam.rotate(u, r))
+      if (cam.state == 'pan') {
+        perform(() => cam.move(mul([x, -y, 0], 0.01)))
+      } else if (cam.state == 'walk') {
+        perform(() => cam.move(mul([0, 0, y], 0.01)))
+        const u = [0, x, 0]
+        const r = -len(u) / 500
+        if (!r) return
+        perform(() => cam.rotate(u, r))
+      } else {
+        const u = [y, x, 0]
+        const r = -len(u) / 500
+        if (!r) return
+
+        perform(() => cam.rotate(u, r))
+      }
     }
 
     /////// Math ////////
