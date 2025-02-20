@@ -1,6 +1,6 @@
-import { norm, add, mul, neg, dot, rot3, mdot, mix, mix2 } from './math.js'
+import { norm, add, mul, mmul, neg, dot, rot3, mdot, mix, mix2 } from './math.js'
 
-export class Camera {
+export default class Camera {
   constructor(scene, pos, rot, focal) {
     this.scene = scene
 
@@ -9,26 +9,37 @@ export class Camera {
     this.focal = focal || 1
   }
 
-  stop() {
-    this.stopped = true
+  move(by) {
+    this.pos = add(this.pos, mdot(this.rot, by))
   }
 
-  async render(canvas) {
+  rotate(u, r) {
+    this.rot = mmul(this.rot, rot3(u, r))
+  }
+
+  async render(canvas, antialias = true) {
     const [rx, ry] = canvas.resolution
     const pixel = 1.4 / (rx * this.focal)
+    const pipeline = []
 
-    const chunk = 1000
-    for (let i = 0; !this.stopped && i < rx * ry; i += chunk) {
-      const c = i
-      await new Promise(resolve => setTimeout(() => {
-        for (let j = c; !this.stopped && j < c + chunk; j++) {
-          const x = j % rx
-          const y = Math.floor(j / rx)
-
-          const colors = this.rays(x, y, rx, ry)
-            .map(ray => new Marcher(this, this.scene, pixel)
+    for (let y = 0; y < ry; y++) {
+      for (let x = 0; x < rx; x++) {
+        pipeline.push(() => {
+          const rays = antialias
+            ? this.rays(x, y, rx, ry)
+            : [this.ray(x, y, rx, ry)]
+          const colors = rays.map(ray =>
+            new Marcher(this.scene, pixel)
               .march(this.pos, ray))
           canvas.paint(x, y, mix(colors))
+        })
+      }
+    }
+
+    while (pipeline.length) {
+      await new Promise(resolve => setTimeout(() => {
+        for (let i = 0; pipeline.length && i < 500; i++) {
+          pipeline.shift()()
         }
         resolve()
       }))
@@ -43,12 +54,19 @@ export class Camera {
       -this.focal
     ])))
   }
+
+  ray(x, y, rx, ry) {
+    return mdot(this.rot, norm([
+      + ((x + .5 / 4) / rx - .5),
+      - ((y + .5 / 4) / ry - .5) * (ry / rx),
+      -this.focal
+    ]))
+  }
 }
 
 class Marcher {
 
-  constructor(camera, scene, pixel) {
-    this.camera = camera
+  constructor(scene, pixel) {
     this.scene = scene
     this.pixel = pixel
 
@@ -66,7 +84,7 @@ class Marcher {
   }
 
   march(point, ray) {
-    while (!this.camera.stopped && this.travel < this.maxtravel) {
+    while (this.travel < this.maxtravel) {
       const [d, m] = this.scene(point)
 
       if (d <= 0) return m
