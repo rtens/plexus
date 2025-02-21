@@ -68,7 +68,7 @@ class Worker {
   async run() {
     while (this.work.length && this.running) {
       await new Promise(done => setTimeout(() => {
-        for (let i = 0; i < 500; i++) {
+        for (let i = 0; i < 1000; i++) {
           if (!this.work.length) break
           this.work.shift()()
         }
