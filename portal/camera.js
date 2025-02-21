@@ -20,47 +20,61 @@ export default class Camera {
   async render(canvas, antialias = true) {
     const [rx, ry] = canvas.resolution
     const pixel = 1.4 / (rx * this.focal)
-    const pipeline = []
+
+    if (this.worker) this.worker.stop()
+    this.worker = new Worker()
 
     for (let y = 0; y < ry; y++) {
       for (let x = 0; x < rx; x++) {
-        pipeline.push(() => {
-          const rays = antialias
-            ? this.rays(x, y, rx, ry)
-            : [this.ray(x, y, rx, ry)]
-          const colors = rays.map(ray =>
-            new Marcher(this.scene, pixel)
-              .march(this.pos, ray))
+        this.worker.add(() => {
+          const colors = this.rays(x, y, rx, ry, antialias)
+            .map(ray => new Marcher(this.scene, pixel)
+                 .march(this.pos, ray))
           canvas.paint(x, y, mix(colors))
         })
       }
     }
 
-    while (pipeline.length) {
-      await new Promise(resolve => setTimeout(() => {
-        for (let i = 0; pipeline.length && i < 500; i++) {
-          pipeline.shift()()
-        }
-        resolve()
-      }))
-    }
+    return this.worker.run()
   }
 
-  rays(x, y, rx, ry) {
-    const subs = [[.87, .5], [-.87, .5], [0, -1]]
+  rays(x, y, rx, ry, antialias) {
+    const subs = antialias
+          ? [[.87, .5], [-.87, .5], [0, -1]]
+          : [[0, 0]]
     return subs.map(([dx, dy]) => mdot(this.rot, norm([
       + ((x + .5 + dx / 4) / rx - .5),
       - ((y + .5 + dy / 4) / ry - .5) * (ry / rx),
       -this.focal
     ])))
   }
+}
 
-  ray(x, y, rx, ry) {
-    return mdot(this.rot, norm([
-      + ((x + .5 / 4) / rx - .5),
-      - ((y + .5 / 4) / ry - .5) * (ry / rx),
-      -this.focal
-    ]))
+class Worker {
+
+  constructor() {
+    this.work = []
+    this.running = true
+  }
+
+  add(work) {
+    this.work.push(work)
+  }
+
+  stop() {
+    this.running = false
+  }
+
+  async run() {
+    while (this.work.length && this.running) {
+      await new Promise(done => setTimeout(() => {
+        for (let i=0; i<500; i++) {
+          if (!this.work.length) break
+          this.work.shift()()
+        }
+        done()
+      }))
+    }
   }
 }
 
