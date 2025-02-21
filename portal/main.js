@@ -23,8 +23,9 @@ const controller = new Controller(camera, element)
 controller.on_action = async () => {
   for (const size of [20, 10, 5, 2, 1]) {
     const start = Date.now()
-    await camera.render(new Canvas(element, size), size < 20)
-    console.log('rendered', size, (Date.now() - start) / 1000)
+    const running = await camera.render(new Canvas(element, size), size < 20)
+    if (!running) return
+    console.log('rendered ', size, (Date.now() - start) / 1000)
   }
 }
 controller.on_action()

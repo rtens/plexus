@@ -29,7 +29,7 @@ export default class Camera {
         this.worker.add(() => {
           const colors = this.rays(x, y, rx, ry, antialias)
             .map(ray => new Marcher(this.scene, pixel)
-                 .march(this.pos, ray))
+              .march(this.pos, ray))
           canvas.paint(x, y, mix(colors))
         })
       }
@@ -40,8 +40,8 @@ export default class Camera {
 
   rays(x, y, rx, ry, antialias) {
     const subs = antialias
-          ? [[.87, .5], [-.87, .5], [0, -1]]
-          : [[0, 0]]
+      ? [[.87, .5], [-.87, .5], [0, -1]]
+      : [[0, 0]]
     return subs.map(([dx, dy]) => mdot(this.rot, norm([
       + ((x + .5 + dx / 4) / rx - .5),
       - ((y + .5 + dy / 4) / ry - .5) * (ry / rx),
@@ -68,13 +68,15 @@ class Worker {
   async run() {
     while (this.work.length && this.running) {
       await new Promise(done => setTimeout(() => {
-        for (let i=0; i<500; i++) {
+        for (let i = 0; i < 500; i++) {
           if (!this.work.length) break
           this.work.shift()()
         }
         done()
       }))
     }
+
+    return this.running
   }
 }
 
@@ -86,8 +88,7 @@ class Marcher {
 
     this.maxreflections = 5
     this.maxtravel = 100
-    this.dimming = .7
-    this.bg = [0, 0, 0, 0, 0]
+    this.dimming = .5
 
     this.travel = 0
     this.reflections = 0
@@ -111,7 +112,7 @@ class Marcher {
       point = add(point, mul(ray, d))
     }
 
-    return this.bg
+    return add(ray, [.5, .5, .5])
   }
 
   fragment(m, point, ray) {
@@ -127,7 +128,7 @@ class Marcher {
 
   shade(m, n, ray) {
     const f = (dot(ray, neg(n)) - 1) * this.dimming + 1
-    return mix2(m, this.bg, f)
+    return mix2(m, [0, 0, 0, 0, 0], f)
   }
 
   normal(point) {
