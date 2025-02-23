@@ -17,7 +17,11 @@ export default class Controller {
     this.setup_listeners()
   }
 
-  on_action() { }
+  render_with(render) {
+    this.render = render
+    render()
+    return this
+  }
 
   actions() {
     return [
@@ -58,7 +62,7 @@ export default class Controller {
 
   perform(action) {
     action()
-    this.on_action()
+    this.render()
   }
 
   clicked(c, p) {
@@ -126,4 +130,3 @@ export default class Controller {
     this.element.ontouchmove = touch(this.element.onmousemove)
   }
 }
-
