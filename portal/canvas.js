@@ -1,22 +1,18 @@
-import { mul } from './math.js'
+import { Point } from './math.js'
 
 export default class Canvas {
-  static state = 'up'
-  static last = null
 
-  constructor(element, factor = 1) {
+  constructor(element, pixel = 1) {
     this.ctx = element.getContext("2d")
-
-    this.size = [element.width, element.height]
-    this.resolution = mul(this.size, 1 / factor)
-    this.pixel = [factor, factor]
+    this.size = new Point(element.width, element.height)
+    this.resolution = this.size.times(1 / pixel)
+    this.pixel = pixel
   }
 
   paint(x, y, color) {
-    const [pw, ph] = this.pixel
-    const [r, g, b] = mul(color, 255).map(Math.round)
+    const {red, green, blue} = color.times(255).map(Math.round)
 
-    this.ctx.fillStyle = `rgb(${r} ${g} ${b})`
-    this.ctx.fillRect(x * pw, y * ph, pw, ph)
+    this.ctx.fillStyle = `rgb(${red} ${green} ${blue})`
+    this.ctx.fillRect(x * this.pixel, y * this.pixel, this.pixel, this.pixel)
   }
 }

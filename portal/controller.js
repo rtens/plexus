@@ -1,5 +1,3 @@
-import { len, add, mul, neg } from './math.js'
-
 export default class Controller {
 
   constructor(camera, element) {

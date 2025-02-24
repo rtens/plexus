@@ -1,25 +1,18 @@
-import { norm, add, mul, mmul, neg, dot, rot3, mdot, mix, mix2 } from './math.js'
+import { Point, Transform } from './math.js'
+import { Color, mixed, black } from './colors.js'
 
 export default class Camera {
-  constructor(scene, pos, rot, focal) {
+
+  constructor(scene, transform = new Transform(), focal = 1) {
     this.scene = scene
-
-    this.pos = pos || [0, 0, 0]
-    this.rot = rot || rot3([1, 0, 0], 0)
-    this.focal = focal || 1
-  }
-
-  move(by) {
-    this.pos = add(this.pos, mdot(this.rot, by))
-  }
-
-  rotate(u, r) {
-    this.rot = mmul(this.rot, rot3(u, r))
+    this.transform = transform
+    this.focal = focal
   }
 
   async render(canvas, antialias = true) {
-    const [rx, ry] = canvas.resolution
-    const pixel = 1.4 / (rx * this.focal)
+    const [rx, ry] = canvas.resolution.values
+    const precision = 1 / Math.max(rx, ry)
+    const origin = this.transform.on(new Point(0, 0, 0))
 
     if (this.worker) this.worker.stop()
     this.worker = new Worker()
@@ -28,9 +21,9 @@ export default class Camera {
       for (let x = 0; x < rx; x++) {
         this.worker.add(() => {
           const colors = this.rays(x, y, rx, ry, antialias)
-            .map(ray => new Marcher(this.scene, pixel)
-              .march(this.pos, ray))
-          canvas.paint(x, y, mix(colors))
+            .map(ray => new Probe(this.scene, precision)
+                 .shoot(origin, ray))
+          canvas.paint(x, y, mixed(colors))
         })
       }
     }
@@ -42,11 +35,12 @@ export default class Camera {
     const subs = antialias
       ? [[.87, .5], [-.87, .5], [0, -1]]
       : [[0, 0]]
-    return subs.map(([dx, dy]) => mdot(this.rot, norm([
-      + ((x + .5 + dx / 4) / rx - .5),
-      - ((y + .5 + dy / 4) / ry - .5) * (ry / rx),
-      -this.focal
-    ])))
+    return subs.map(([dx, dy])  =>
+      this.transform.on(new Point(
+        + ((x + .5 + dx / 4) / rx - .5),
+        - ((y + .5 + dy / 4) / ry - .5) * (ry / rx),
+        -this.focal
+      )).normalized())
   }
 }
 
@@ -58,8 +52,7 @@ class Worker {
   }
 
   add(work) {
-    this.work.push(work)
-  }
+    this.work.push(work)  }
 
   stop() {
     this.running = false
@@ -80,71 +73,29 @@ class Worker {
   }
 }
 
-class Marcher {
+class Probe {
 
-  constructor(scene, pixel) {
+  constructor(scene, precision) {
     this.scene = scene
-    this.pixel = pixel
-
-    this.maxreflections = 5
-    this.maxtravel = 100
-    this.dimming = .5
-
+    this.precision = precision
+    this.max_travel = 100
     this.travel = 0
-    this.reflections = 0
   }
 
-  mindist() {
-    return this.pixel * this.travel / 10
-  }
+  shoot(origin, ray) {
+    const hit = this.scene.hit(
+      origin, ray, this.precision,
+      this.max_travel, this.travel)
 
-  march(point, ray) {
-    while (this.travel < this.maxtravel) {
-      const [d, m] = this.scene(point)
-
-      if (d <= 0) return m
-
-      if (d < this.mindist()) {
-        return this.fragment(m, point, ray)
-      }
-
-      this.travel += d
-      point = add(point, mul(ray, d))
+    if (hit) {
+      // return new Color(1,1,1).times(1-(hit.travel-5))
+      const point = origin.plus(ray.times(hit.travel))
+      // return Color.from(point)
+      const normal = hit.shape.normal(point, this.precision)
+      return Color.from(normal)
+    } else {
+      return new Color(0,0,0)
+      return Color.from(ray.plus(new Point(.5,.5,.5)))
     }
-
-    return add(ray, [.5, .5, .5])
-  }
-
-  fragment(m, point, ray) {
-    const n = this.normal(point)
-
-    if (m[4] && this.reflections < this.maxreflections) {
-      const refl = this.reflect(n, point, ray)
-      m = mix2(refl, m, m[4])
-    }
-
-    return this.shade(m, n, ray)
-  }
-
-  shade(m, n, ray) {
-    const f = (dot(ray, neg(n)) - 1) * this.dimming + 1
-    return mix2(m, [0, 0, 0, 0, 0], f)
-  }
-
-  normal(point) {
-    const e = this.pixel / 100
-    const de = ve => this.scene(add(point, ve))[0]
-    return norm([
-      de([e, 0, 0]) - de([-e, 0, 0]),
-      de([0, e, 0]) - de([0, -e, 0]),
-      de([0, 0, e]) - de([0, 0, -e])
-    ])
-  }
-
-  reflect(n, point, ray) {
-    this.reflections++
-    point = add(point, mul(n, this.mindist() * 1.1))
-    ray = add(ray, neg(mul(n, 2 * dot(ray, n))))
-    return this.march(point, ray)
   }
 }

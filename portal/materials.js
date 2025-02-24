@@ -1,17 +1,23 @@
-export const flat = (r, g, b) => [r, g, b, 0, 0]
+import { Color } from './colors.js'
 
-export const transp = (t, m) => p => (([r, g, b, _, s]) => [r, g, b, t, s])(m(p))
+export class Material {
 
-export const refl = (s, m) => p => (([r, g, b, t, _]) => [r, g, b, t, s])(m(p))
+  constructor(color) {
+    this.color = color
+    this.reflectiveness = 0
+    this.transparency = 0
+    this.refractive_index = 0
+  }
 
-export const cyan = () => flat(0, 1, 1)
+  reflective(reflectiveness) {
+    this.reflectiveness = reflectiveness
+    return this
+  }
 
-export const magenta = () => flat(1, 0, 1)
+  transparent(transparency, refractive_index = 1) {
+    this.transparency = transparency
+    return this
+  }
+}
 
-export const yellow = () => flat(1, 1, 0)
-
-export const red = () => flat(1, 0, 0)
-
-export const green = () => flat(0, 1, 0)
-
-export const blue = () => flat(0, 0, 1)
+export const flat = (r, g, b) => new Material(new Color(r, g, b))
