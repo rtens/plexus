@@ -17,7 +17,7 @@ export class Space {
       const inverse = transform.inverse()
       const hit = shape.hit(
         inverse.on(origin),
-        direction,
+        inverse.rotation.on(direction),
         precision,
         max_travel,
         travel)

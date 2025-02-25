@@ -40,43 +40,46 @@ export class Transform {
 
   constructor(translation, rotation, scaling) {
     this.translation = translation
+      || new Point(0, 0, 0)
     this.rotation = rotation
+      || this.rotation_matrix(new Point(1, 0, 0), 0)
     this.scaling = scaling
+      || 1
   }
 
   moved(translation) {
-    if (this.translation)
-      translation = this.translation.plus(translation)
-
-    return new Transform(translation, this.rotation, this.scaling)
+    return new Transform(
+      this.translation.plus(translation),
+      this.rotation,
+      this.scaling)
   }
 
   rotated(axis, radians) {
-    let rotation = this.rotation_matrix(axis, radians)
-
-    if (this.rotation)
-      rotation = this.rotation.times(rotation)
-
-    return new Transform(this.translation, rotation, this.scaling)
+    return new Transform(
+      this.translation,
+      this.rotation.times(this.rotation_matrix(axis, radians)),
+      this.scaling)
   }
 
   scaled(factor) {
-    const scaling = (this.scaling || 1) * factor
-    return new Transform(this.translation, this.rotation, scaling)
+    return new Transform(
+      this.translation,
+      this.rotation,
+      this.scaling * factor)
   }
 
   on(point) {
-    if (this.rotation)
-      point = this.rotation.on(point)
-    if (this.translation)
-      point = this.translation.plus(point)
-    if (this.scaling)
-      point = point.times(this.scaling)
+    point = this.rotation.on(point)
+    point = this.translation.plus(point)
+    point = point.times(this.scaling)
     return point
   }
 
   inverse() {
-    return this
+    return new Inverse(
+      this.translation,
+      this.rotation,
+      this.scaling)
   }
 
   rotation_matrix(axis, radians) {
@@ -91,6 +94,23 @@ export class Transform {
       [x * z * ci - y * s, y * z * ci + x * s, z * z * ci + c]
     ])
   }
+}
+
+class Inverse {
+
+  constructor(translation, rotation, scaling) {
+    this.translation = translation.times(-1)
+    this.rotation = rotation.transposed()
+    this.scaling = 1 / scaling
+  }
+
+  on(point) {
+    point = point.times(this.scaling)
+    point = this.translation.plus(point)
+    point = this.rotation.on(point)
+    return point
+  }
+
 }
 
 class Matrix {
@@ -117,6 +137,11 @@ class Matrix {
   columns() {
     return this.values[0].map((_, c) =>
       new Point(...this.values.map(row => row[c])))
+  }
+
+  transposed() {
+    return new Matrix(this.values[0].map((_, c) =>
+      this.values.map((_, r) => this.values[r][c])))
   }
 }
 

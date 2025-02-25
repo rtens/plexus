@@ -34,6 +34,7 @@ export default class Camera {
   async render(canvas, antialias = true) {
     const [rx, ry] = canvas.resolution.values
     const precision = 1 / Math.max(rx, ry)
+    const origin = this.transform.on(new Point(0, 0, 0))
 
     if (this.worker) this.worker.stop()
     this.worker = new Worker()
@@ -42,7 +43,7 @@ export default class Camera {
       for (let x = 0; x < rx; x++) {
         this.worker.add(() => {
           const colors = this.rays(x, y, rx, ry, antialias)
-            .map(({ origin, ray }) =>
+            .map(ray =>
               new Probe(this.scene, precision)
                 .shoot(origin, ray))
           canvas.paint(x, y, mixed(colors))
@@ -54,21 +55,17 @@ export default class Camera {
   }
 
   rays(x, y, rx, ry, antialias) {
-    const origin = this.transform.on(new Point(0, 0, 0))
     const subs = antialias
       ? [[.87, .5], [-.87, .5], [0, -1]]
       : [[0, 0]]
 
     return subs
       .map(([dx, dy]) =>
-        new Point(
+        this.transform.rotation.on(new Point(
           + ((x + .5 + dx / 4) / rx - .5),
           - ((y + .5 + dy / 4) / ry - .5) * (ry / rx),
           -this.focal
-        ))
-      .map(pixel =>
-        this.transform.on(pixel).minus(origin).normalized())
-      .map(ray => ({ origin, ray }))
+        ).normalized()))
   }
 }
 
