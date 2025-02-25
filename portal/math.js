@@ -1,11 +1,18 @@
 export class Point {
 
-  constructor(...values) {
-    this.values = values
+  constructor(x, y, z) {
+    this.values = [x, y, z]
+    this.x = x
+    this.y = y
+    this.z = z
   }
 
   plus(point) {
     return this.map((v, i) => v + point.values[i])
+  }
+
+  minus(point) {
+    return this.plus(point.times(-1))
   }
 
   times(factor) {
@@ -31,50 +38,71 @@ export class Point {
 
 export class Transform {
 
-  constructor(translation, rotation, scale) {
-    this.translation = translation || new Point(0,0,0)
-    this.rotation = rotation || new Rotation(new Point(1,0,0), 0)
-    this.scale = scale || 1
+  add(transform) {
+    return new Combination(transform, this)
   }
 
   on(point) {
-    return point.plus(this.translation)
-  }
-
-  moved(point) {
-    return new Transform(
-      this.translation.plus(point),
-      this.rotation,
-      this.scale)
-  }
-
-  rotated(axis, radians) {
-    return new Transform(
-      this.translation,
-      new Rotation(axis, radians).times(this.rotation),
-      this.scale)
-  }
-
-  sclaed(factor) {
-    return new Transform(
-      this.translation,
-      this.rotation,
-      this.scale * factor)
+    if (this.next) return this.next.on(point)
+    return point
   }
 
   inverse() {
-    return new Transform(
-      this.translation.times(-1),
-      this.rotation,
-      1/this.scale)
+    return this
   }
 }
 
-export const moved = (...values) =>
-  new Transform().moved(new Point(...values))
+class Combination extends Transform {
 
-export const rotated = (axis_values, radians) =>
-  new Transform().rotated(new Point(...axis_values), radians)
+  constructor(first, then) {
+    super()
+    this.first = first
+    this.second = then
+  }
+
+  on(point) {
+    return this.second.on(this.first.on(point))
+  }
+}
+
+export class Translation extends Transform {
+
+  constructor(point) {
+    super()
+    this.point = point
+  }
+
+  on(point) {
+    return super.on(point.plus(this.point))
+  }
+}
+
+export class Rotation extends Transform {
+
+  constructor(axis, radians) {
+    super()
+    this.axis = axis
+    this.radians = radians
+    this.rotation = this.rotation_matrix()
+  }
+
+  on(point) {
+    return super.on(this.rotation.on(point))
+  }
+
+  rotation_matrix() {
+    const [x, y, z] = this.axis.normalized().values
+    const c = Math.cos(this.radians)
+    const s = Math.sin(this.radians)
+    const ci = 1 - c
+
+    return new Matrix([
+      [x * x * ci + c, x * y * ci - z * s, x * z * ci + y * s],
+      [x * y * ci + z * s, y * y * ci + c, y * z * ci - x * s],
+      [x * z * ci - y * s, y * z * ci + x * s, z * z * ci + c]
+    ])
+  }
+}
 
 class Matrix {
 
@@ -83,7 +111,7 @@ class Matrix {
   }
 
   on(point) {
-    return new Point(this.rows().map(row => row.dot(point)))
+    return new Point(...this.rows().map(row => row.dot(point)))
   }
 
   times(matrix) {
@@ -94,32 +122,13 @@ class Matrix {
   }
 
   rows() {
-    return this.values.map(row => new Point(row))
+    return this.values.map(row => new Point(...row))
   }
 
   columns() {
     return this.values[0].map((_, c) =>
-      new Point(this.values.map(row => row[c])))
+      new Point(...this.values.map(row => row[c])))
   }
-}
-
-class Rotation extends Matrix {
-
-  constructor(axis, radians) {
-    super(rotation_matrix(axis.normalized().values, radians))
-  }
-}
-
-function rotation_matrix([x, y, z], r) {
-  const c = Math.cos(r)
-  const s = Math.sin(r)
-  const ci = 1 - c
-
-  return [
-    [x * x * ci + c, x * y * ci - z * s, x * z * ci + y * s],
-    [x * y * ci + z * s, y * y * ci + c, y * z * ci - x * s],
-    [x * z * ci - y * s, y * z * ci + x * s, z * z * ci + c]
-  ]
 }
 
 export const sum = v => v.reduce((a, c) => a + c, 0)

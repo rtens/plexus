@@ -1,3 +1,5 @@
+import { Point, Rotation, Translation } from "./math.js"
+
 export default class Controller {
 
   constructor(camera, element) {
@@ -5,8 +7,6 @@ export default class Controller {
     this.element = element
 
     this.state = 'rotate'
-    this.step = .3
-    this.turn = .05
 
     this.mouse = 'up'
     this.last = null
@@ -23,23 +23,9 @@ export default class Controller {
 
   actions() {
     return [
-      ['a', 'left', () => this.camera.move([-this.step, 0, 0])],
-      ['d', 'right', () => this.camera.move([this.step, 0, 0])],
-      ['w', 'up', () => this.camera.move([0, this.step, 0])],
-      ['s', 'down', () => this.camera.move([0, -this.step, 0])],
-      ['q', 'backward', () => this.camera.move([0, 0, this.step])],
-      ['e', 'forward', () => this.camera.move([0, 0, -this.step])],
-      ['j', 'turn left', () => this.camera.rotate([0, 1, 0], this.turn)],
-      ['l', 'turn right', () => this.camera.rotate([0, 1, 0], -this.turn)],
-      ['i', 'turn up', () => this.camera.rotate([1, 0, 0], this.turn)],
-      ['k', 'turn down', () => this.camera.rotate([1, 0, 0], -this.turn)],
-      ['u', 'turn counter', () => this.camera.rotate([0, 0, 1], this.turn)],
-      ['o', 'turn clockwise', () => this.camera.rotate([0, 0, 1], -this.turn)],
-      ['r', 'zoom in', () => this.camera.focal *= 1.1],
-      ['f', 'zoom out', () => this.camera.focal /= 1.1],
-      ['x', 'rotate', () => this.state = 'rotate'],
-      ['c', 'pan', () => this.state = 'pan'],
-      ['v', 'walk', () => this.state = 'walk'],
+      ['q', 'rotate', () => this.state = 'rotate'],
+      ['w', 'walk', () => this.state = 'walk'],
+      ['e', 'pan', () => this.state = 'pan'],
     ]
   }
 
@@ -68,25 +54,31 @@ export default class Controller {
   }
 
   dragged(a, b) {
-    const [x, y] = add(b, neg(a))
+    const [x, y] = b.minus(a).values
 
     if (this.state == 'pan') {
-      this.perform(() => this.camera.move(mul([x, -y, 0], 0.01)))
+      this.move(x, -y, 0)
 
     } else if (this.state == 'walk') {
-      this.perform(() => this.camera.move(mul([0, 0, y], 0.01)))
-      const u = [0, x, 0]
-      const r = -len(u) / 500
-      if (!r) return
-      this.perform(() => this.camera.rotate(u, r))
+      this.move(0, 0, y)
+      this.rotate(0, x, 0)
 
-    } else {
-      const u = [y, x, 0]
-      const r = -len(u) / 500
-      if (!r) return
-
-      this.perform(() => this.camera.rotate(u, r))
+    } else if (this.state == 'rotate') {
+      this.rotate(y, x, 0)
     }
+  }
+
+  move(x, y, z) {
+    this.perform(() =>
+      this.camera.change(new Translation(new Point(x, y, z).times(0.01))))
+  }
+
+  rotate(x, y, z) {
+    const u = new Point(x, y, z)
+    const r = -u.length() / 500
+    if (!r) return
+
+    this.perform(() => this.camera.change(new Rotation(u, r)))
   }
 
   setup_listeners() {
@@ -95,7 +87,7 @@ export default class Controller {
       if (action) this.perform(action[2])
     }
 
-    const at = e => [e.clientX, e.clientY]
+    const at = e => new Point(e.clientX, e.clientY)
 
     this.element.onmousedown = e => {
       this.mouse = 'down'
