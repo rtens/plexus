@@ -1,11 +1,8 @@
 import { Point } from './math.js'
 
-export class Thing {
+export class Shape {
 
   hit(origin, direction, precision, max_travel, travel = 0) { }
-}
-
-export class Shape extends Thing {
 
   normal(point, precision) { }
 
@@ -24,7 +21,7 @@ class SdfShape extends Shape {
       const point = origin.plus(direction.times(travel))
       const distance = this.distance(point)
       if (distance < precision * travel / 10) {
-        return {travel, shape: this}
+        return { travel, shape: this }
       }
       travel += distance
     }
@@ -32,7 +29,7 @@ class SdfShape extends Shape {
   }
 
   normal(point, precision) {
-    const e = precision/10
+    const e = precision / 10
     const d = (...v) => this.distance(point.plus(new Point(...v)))
     return new Point(
       d(e, 0, 0) - d(-e, 0, 0),
@@ -46,7 +43,7 @@ export class SdfSphere extends SdfShape {
 
   constructor(radius = 1) {
     super()
-    this.radius = 1
+    this.radius = radius
   }
 
   distance(point) {

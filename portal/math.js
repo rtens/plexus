@@ -38,62 +38,51 @@ export class Point {
 
 export class Transform {
 
-  add(transform) {
-    return new Combination(transform, this)
+  constructor(translation, rotation, scaling) {
+    this.translation = translation
+    this.rotation = rotation
+    this.scaling = scaling
+  }
+
+  moved(translation) {
+    if (this.translation)
+      translation = this.translation.plus(translation)
+
+    return new Transform(translation, this.rotation, this.scaling)
+  }
+
+  rotated(axis, radians) {
+    let rotation = this.rotation_matrix(axis, radians)
+
+    if (this.rotation)
+      rotation = this.rotation.times(rotation)
+
+    return new Transform(this.translation, rotation, this.scaling)
+  }
+
+  scaled(factor) {
+    const scaling = (this.scaling || 1) * factor
+    return new Transform(this.translation, this.rotation, scaling)
   }
 
   on(point) {
-    if (this.next) return this.next.on(point)
+    if (this.rotation)
+      point = this.rotation.on(point)
+    if (this.translation)
+      point = this.translation.plus(point)
+    if (this.scaling)
+      point = point.times(this.scaling)
     return point
   }
 
   inverse() {
     return this
   }
-}
 
-class Combination extends Transform {
-
-  constructor(first, then) {
-    super()
-    this.first = first
-    this.second = then
-  }
-
-  on(point) {
-    return this.second.on(this.first.on(point))
-  }
-}
-
-export class Translation extends Transform {
-
-  constructor(point) {
-    super()
-    this.point = point
-  }
-
-  on(point) {
-    return super.on(point.plus(this.point))
-  }
-}
-
-export class Rotation extends Transform {
-
-  constructor(axis, radians) {
-    super()
-    this.axis = axis
-    this.radians = radians
-    this.rotation = this.rotation_matrix()
-  }
-
-  on(point) {
-    return super.on(this.rotation.on(point))
-  }
-
-  rotation_matrix() {
-    const [x, y, z] = this.axis.normalized().values
-    const c = Math.cos(this.radians)
-    const s = Math.sin(this.radians)
+  rotation_matrix(axis, radians) {
+    const [x, y, z] = axis.normalized().values
+    const c = Math.cos(radians)
+    const s = Math.sin(radians)
     const ci = 1 - c
 
     return new Matrix([

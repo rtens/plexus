@@ -9,8 +9,26 @@ export default class Camera {
     this.focal = focal
   }
 
-  change(transform) {
-    this.transform = this.transform.add(transform)
+  move(x, y, z) {
+    const rel = this.transform.on(new Point(x, y, z))
+      .minus(this.transform.on(new Point(0, 0, 0)))
+    this.transform = this.transform.moved(rel)
+  }
+
+  rotate(x, y, z) {
+    const u = new Point(x, y, z)
+    const r = u.length()
+    if (!r) return
+
+    this.transform = this.transform.rotated(u, r)
+  }
+
+  zoom(factor) {
+    this.focal += factor
+  }
+
+  scale(factor) {
+    this.transform = this.transform.scaled(factor)
   }
 
   async render(canvas, antialias = true) {
@@ -94,15 +112,17 @@ class Probe {
   }
 
   shoot(origin, ray) {
-    const hit = this.scene.hit(
+    const hits = this.scene.hits(
       origin, ray, this.precision,
       this.max_travel, this.travel)
 
-    if (hit) {
+    const closest = hits[0]
+    if (closest) {
+      // return new Color(1, 1, 1).times(1-closest.travel/10)
       // return new Color(1,1,1).times(1-(hit.travel-5))
-      const point = origin.plus(ray.times(hit.travel))
+      const point = origin.plus(ray.times(closest.travel))
       // return Color.from(point)
-      const normal = hit.shape.normal(point, this.precision)
+      const normal = closest.shape.normal(point, this.precision)
       return Color.from(normal)
     } else {
       return Color.from(ray.plus(new Point(.5, .5, .5)))

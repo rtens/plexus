@@ -1,4 +1,4 @@
-import { Point, Rotation, Translation } from "./math.js"
+import { Point } from "./math.js"
 
 export default class Controller {
 
@@ -23,9 +23,11 @@ export default class Controller {
 
   actions() {
     return [
-      ['q', 'rotate', () => this.state = 'rotate'],
-      ['w', 'walk', () => this.state = 'walk'],
-      ['e', 'pan', () => this.state = 'pan'],
+      ['q', 'pan', () => this.state = 'pan'],
+      ['w', 'rotate', () => this.state = 'rotate'],
+      ['e', 'walk', () => this.state = 'walk'],
+      ['r', 'tilt', () => this.state = 'tilt'],
+      ['t', 'zoom/scale', () => this.state = 'zoom'],
     ]
   }
 
@@ -56,29 +58,25 @@ export default class Controller {
   dragged(a, b) {
     const [x, y] = b.minus(a).values
 
-    if (this.state == 'pan') {
-      this.move(x, -y, 0)
+    this.perform(() => {
+      if (this.state == 'pan') {
+        this.camera.move(x / 100, -y / 100, 0)
 
-    } else if (this.state == 'walk') {
-      this.move(0, 0, y)
-      this.rotate(0, x, 0)
+      } else if (this.state == 'walk') {
+        this.camera.move(0, 0, y / 100)
+        this.camera.rotate(0, -x / 500, 0)
 
-    } else if (this.state == 'rotate') {
-      this.rotate(y, x, 0)
-    }
-  }
+      } else if (this.state == 'rotate') {
+        this.camera.rotate(-y / 500, -x / 500, 0)
 
-  move(x, y, z) {
-    this.perform(() =>
-      this.camera.change(new Translation(new Point(x, y, z).times(0.01))))
-  }
+      } else if (this.state == 'tilt') {
+        this.camera.rotate(-y / 500, 0, -x / 500)
 
-  rotate(x, y, z) {
-    const u = new Point(x, y, z)
-    const r = -u.length() / 500
-    if (!r) return
-
-    this.perform(() => this.camera.change(new Rotation(u, r)))
+      } else if (this.state == 'zoom') {
+        this.camera.zoom(-y / 500)
+        this.camera.scale(1 - x / 500)
+      }
+    })
   }
 
   setup_listeners() {

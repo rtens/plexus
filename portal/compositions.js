@@ -1,34 +1,29 @@
 import { Transform } from './math.js'
-import { Thing } from './shapes.js'
 
-export class Group extends Thing {
+export class Space {
 
   constructor() {
-    super()
-    this.things = []
+    this.shapes = []
   }
 
-  add(thing, transform = new Transform()) {
-    this.things.push({thing, transform})
+  add(shape, transform = new Transform()) {
+    this.shapes.push({ shape, transform })
     return this
   }
 
-  hit(origin, direction, precision, max_travel, travel = 0) {
-    let closest_hit = null
-    for (const {thing, transform} of this.things) {
+  hits(origin, direction, precision, max_travel, travel = 0) {
+    const hits = []
+    for (const { shape, transform } of this.shapes) {
       const inverse = transform.inverse()
-      const hit = thing.hit(
+      const hit = shape.hit(
         inverse.on(origin),
         direction,
         precision,
         max_travel,
         travel)
 
-      if (!hit) continue
-      if (!closest_hit || hit.travel < closest_hit.travel) {
-        closest_hit = hit
-      }
+      if (hit) hits.push(hit)
     }
-    return closest_hit
+    return hits
   }
 }
