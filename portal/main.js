@@ -1,6 +1,4 @@
-import { SdfSphere } from './shapes.js'
-import { flat } from './materials.js'
-import { cyan } from './colors.js'
+import { SdfSphere, SdfBox, SdfTorus } from './shapes.js'
 import { Space } from './compositions.js'
 import { Point, Transform } from './math.js'
 import Camera from './camera.js'
@@ -8,20 +6,14 @@ import Canvas from './canvas.js'
 import Controller from './controller.js'
 
 const scene = new Space()
-  .add(new SdfSphere()
-    .painted(flat(cyan)))
-// .add(new AnalyticalSphere(),
-//   new Transform()
-//     .move([1, 1, -6]))
-// .add(new AnalyticalBox(),
-//   new Transform()
-//     .move([1, -1, -6]))
-// .add(new SdfTorus(),
-//   new Transform()
-//     .move([-1, 1, -6]))
-// .add(new SdfBox(),
-//   new Transform()
-//     .move([-1, -1, -6]))
+  .add(new SdfSphere(), new Transform()
+    .moved(new Point(1, 0, -5)))
+  .add(new SdfTorus(), new Transform()
+    .moved(new Point(-2, 1, -5))
+    .rotated(new Point(1, 0, 0), 1))
+  .add(new SdfBox(), new Transform()
+    .moved(new Point(2, 0, -5))
+    .rotated(new Point(1, 1, 0), Math.PI / 4))
 
 
 const camera = new Camera(scene)

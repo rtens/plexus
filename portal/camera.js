@@ -113,16 +113,17 @@ class Probe {
       origin, ray, this.precision,
       this.max_travel, this.travel)
 
-    const closest = hits[0]
-    if (closest) {
-      // return new Color(1, 1, 1).times(1-closest.travel/10)
-      // return new Color(1,1,1).times(1-(hit.travel-5))
-      const point = origin.plus(ray.times(closest.travel))
-      // return Color.from(point)
-      const normal = closest.shape.normal(point, this.precision)
-      return Color.from(normal)
-    } else {
+    if (!hits.length) {
       return Color.from(ray.plus(new Point(.5, .5, .5)))
     }
+
+    const closest = hits.reduce((a, c) => (!a || c.travel < a.travel) ? c : a, null)
+    const point = origin.plus(ray.times(closest.travel))
+    return this.shade(closest.shape, point).times(1 - closest.travel / 100)
+  }
+
+  shade(shape, point) {
+    const normal = shape.normal(point, this.precision)
+    return Color.from(normal)
   }
 }

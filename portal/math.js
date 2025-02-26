@@ -1,6 +1,6 @@
 export class Point {
 
-  constructor(x, y, z) {
+  constructor(x, y = 0, z = 0) {
     this.values = [x, y, z]
     this.x = x
     this.y = y
