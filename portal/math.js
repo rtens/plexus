@@ -69,9 +69,9 @@ export class Transform {
   }
 
   on(point) {
+    point = point.times(this.scaling)
     point = this.rotation.on(point)
     point = this.translation.plus(point)
-    point = point.times(this.scaling)
     return point
   }
 
@@ -105,9 +105,9 @@ class Inverse {
   }
 
   on(point) {
-    point = point.times(this.scaling)
     point = this.translation.plus(point)
     point = this.rotation.on(point)
+    point = point.times(this.scaling)
     return point
   }
 
