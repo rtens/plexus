@@ -1,12 +1,14 @@
 import { Point, Transform } from './math.js'
-import { Color, mixed, black } from './colors.js'
+import { Color, mixed, black, white } from './colors.js'
 
 export default class Camera {
 
-  constructor(scene, transform = new Transform(), focal = 1) {
-    this.scene = scene
+  constructor(space, transform = new Transform(), focal = 1) {
+    this.space = space
     this.transform = transform
     this.focal = focal
+    this.mode = 'shaded'
+    this.max_travel = 100
   }
 
   move(x, y, z) {
@@ -43,9 +45,7 @@ export default class Camera {
       for (let x = 0; x < rx; x++) {
         this.worker.add(() => {
           const colors = this.rays(x, y, rx, ry, antialias)
-            .map(ray =>
-              new Probe(this.scene, precision)
-                .shoot(origin, ray))
+            .map(ray => this.fragment(origin, ray, precision))
           canvas.paint(x, y, mixed(colors))
         })
       }
@@ -66,6 +66,33 @@ export default class Camera {
           - ((y + .5 + dy / 4) / ry - .5) * (ry / rx),
           -this.focal
         ).normalized()))
+  }
+
+  fragment(origin, ray, precision) {
+    const hits = this.space.hits(origin, ray, precision, this.max_travel)
+
+    if (!hits.length)
+      return Color.from(ray.plus(new Point(.5, .5, .5)))
+
+    const { shape, travel } = hits.reduce((a, c) =>
+      (!a || c.travel < a.travel) ? c : a, null)
+
+    if (this.mode == 'distance')
+      return white.times(1 - travel / 10)
+
+    const point = origin.plus(ray.times(travel))
+    const normal = shape.normal(point, precision)
+
+    if (this.mode == 'normal')
+      return Color.from(normal)
+
+    const color = shape.color(point)
+    if (this.mode == 'flat')
+      return color
+
+    const dimming = .8
+    const shade = normal.times(-1).dot(ray) * dimming + (1 - dimming)
+    return color.mixed(black, shade)
   }
 }
 
@@ -96,34 +123,5 @@ class Worker {
     }
 
     return this.running
-  }
-}
-
-class Probe {
-
-  constructor(scene, precision) {
-    this.scene = scene
-    this.precision = precision
-    this.max_travel = 100
-    this.travel = 0
-  }
-
-  shoot(origin, ray) {
-    const hits = this.scene.hits(
-      origin, ray, this.precision,
-      this.max_travel, this.travel)
-
-    if (!hits.length) {
-      return Color.from(ray.plus(new Point(.5, .5, .5)))
-    }
-
-    const closest = hits.reduce((a, c) => (!a || c.travel < a.travel) ? c : a, null)
-    const point = origin.plus(ray.times(closest.travel))
-    return this.shade(closest.shape, point).times(1 - closest.travel / 100)
-  }
-
-  shade(shape, point) {
-    const normal = shape.normal(point, this.precision)
-    return Color.from(normal)
   }
 }

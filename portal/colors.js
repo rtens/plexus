@@ -32,6 +32,8 @@ export const mixed = (colors, ratios = null) => {
 
 export const black = new Color(0, 0, 0)
 
+export const white = new Color(1, 1, 1)
+
 export const cyan = new Color(0, 1, 1)
 
 export const magenta = new Color(1, 0, 1)

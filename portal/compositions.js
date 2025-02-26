@@ -12,10 +12,11 @@ export class Space {
     return this
   }
 
-  hits(origin, direction, precision, max_travel, travel = 0) {
+  hits(origin, direction, precision, max_travel) {
+    const hit = shape => shape.hit(origin, direction, precision, max_travel)
     return this.shapes
-      .map(shape => shape.hit(origin, direction, precision, max_travel, travel))
-      .filter(hit => hit)
+      .map(shape => ({ shape, travel: hit(shape) }))
+      .filter(({ travel }) => travel)
   }
 }
 
@@ -24,31 +25,26 @@ class Transformed extends Shape {
   constructor(shape, transform) {
     super()
     this.shape = shape
+    this.transform = transform
     this.inverse = transform.inverse()
   }
 
-  hit(origin, direction, precision, max_travel, travel = 0) {
+  hit(origin, direction, precision, max_travel) {
     const hit = this.shape.hit(
       this.inverse.on(origin),
       this.inverse.rotation.on(direction),
       precision,
-      max_travel,
-      travel)
+      max_travel)
 
-    if (!hit) return null
-
-    return {
-      shape: this,
-      travel: hit.travel / this.inverse.scaling
-    }
+    if (hit) return hit / this.inverse.scaling
   }
 
   normal(point, precision) {
-    return this.shape.normal(this.inverse.on(point), precision)
+    return this.transform.rotation.on(this.shape.normal(this.inverse.on(point), precision))
   }
 
-  material(point, precision) {
-    return this.shape.material(this.inverse.on(point), precision)
+  color(point, precision) {
+    return this.shape.color(this.inverse.on(point), precision)
   }
 
 }

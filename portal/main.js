@@ -1,23 +1,35 @@
-import { SdfSphere, SdfBox, SdfTorus } from './shapes.js'
+import { SdfSphere, SdfBox, SdfTorus, AnalyticalSphere, AnalyticalBox } from './shapes.js'
+import { blue, cyan, magenta, red, yellow } from './colors.js'
 import { Space } from './compositions.js'
 import { Point, Transform } from './math.js'
 import Camera from './camera.js'
 import Canvas from './canvas.js'
 import Controller from './controller.js'
 
-const scene = new Space()
-  .add(new SdfSphere(), new Transform()
-    .moved(new Point(1, 0, -5)))
-  .add(new SdfTorus(), new Transform()
-    .moved(new Point(-2, 1, -5))
-    .rotated(new Point(1, 0, 0), 1))
-  .add(new SdfBox(), new Transform()
-    .moved(new Point(2, 0, -5))
-    .rotated(new Point(1, 1, 0), Math.PI / 4))
+const space = new Space()
+  .add(new SdfSphere()
+    .painted(cyan), new Transform()
+      .moved(new Point(1, 1, 0)))
+  .add(new SdfBox()
+    .painted(blue), new Transform()
+      .moved(new Point(2, 1, 0))
+      .rotated(new Point(1, 1, 0), Math.PI / 4))
+  .add(new SdfTorus()
+    .painted(magenta), new Transform()
+      .moved(new Point(-2, 1, 0))
+      .rotated(new Point(1, 0, 0), 1))
+  .add(new AnalyticalSphere()
+    .painted(yellow), new Transform()
+      .moved(new Point(-1, -1.5, 0)))
+  .add(new AnalyticalBox()
+    .painted(red), new Transform()
+      .moved(new Point(2, -1.5, 0))
+      .rotated(new Point(1, -1, 0), Math.PI / 4)
+      .scaled(3 / 4))
 
 
-const camera = new Camera(scene)
-camera.move(0, 0, 3)
+const camera = new Camera(space)
+camera.move(0, 0, 8)
 
 const element = document.getElementById("myCanvas")
 new Controller(camera, element)
