@@ -31,6 +31,10 @@ export class Point {
     return this.times(1 / this.length())
   }
 
+  reflected(normal) {
+    return this.plus(normal.times(2 * this.dot(normal)).times(-1))
+  }
+
   map(f) {
     return new Point(...this.values.map(f))
   }

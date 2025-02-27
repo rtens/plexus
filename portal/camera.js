@@ -1,4 +1,4 @@
-import { Point, Transform } from './math.js'
+import { clamp, Point, Transform } from './math.js'
 import { Color, mixed, black, white } from './colors.js'
 
 export default class Camera {
@@ -7,7 +7,7 @@ export default class Camera {
     this.space = space
     this.transform = transform
     this.focal = focal
-    this.mode = 'shaded'
+    this.mode = 'phong'
     this.max_travel = 100
   }
 
@@ -71,28 +71,55 @@ export default class Camera {
   fragment(origin, ray, precision) {
     const hits = this.space.hits(origin, ray, precision, this.max_travel)
 
-    if (!hits.length)
+    if (!hits.length) {
       return Color.from(ray.plus(new Point(.5, .5, .5)))
+    }
 
     const { shape, travel } = hits.reduce((a, c) =>
       (!a || c.travel < a.travel) ? c : a, null)
 
-    if (this.mode == 'distance')
+    if (this.mode == 'distance') {
       return white.times(1 - travel / 10)
+    }
 
     const point = origin.plus(ray.times(travel))
     const normal = shape.normal(point, precision)
 
-    if (this.mode == 'normal')
+    if (this.mode == 'normal') {
       return Color.from(normal)
+    }
 
     const color = shape.color(point)
-    if (this.mode == 'flat')
+    if (this.mode == 'flat') {
       return color
+    }
 
-    const dimming = .8
-    const shade = normal.times(-1).dot(ray) * dimming + (1 - dimming)
+    if (this.mode == 'phong') {
+      const phong = (...l) => Color.from(this.phong(color, new Point(...l).minus(point).normalized(), normal, ray))
+      return mixed([(phong(-80, -60, -50)), (phong(10, 10, 10))], [0.6, 0.7])
+    }
+
+    const dimming = .6
+    const shade = Math.abs(normal.dot(ray)) * dimming + (1 - dimming)
     return color.mixed(black, shade)
+  }
+
+  phong(color, light_dir, normal, ray) {
+    // https://www.shadertoy.com/view/NdB3Dc
+    const ambient_reflection = .7
+    const diffuse_reflection = .8
+    const specular_reflection = .5
+    const shininess = 20
+
+    const ambient = color.times(ambient_reflection)
+    const dot_l_n = clamp(light_dir.dot(normal), 0, 1)
+    const i_d = new Point(.7, .5, 0)
+    const diffuse = i_d.times(diffuse_reflection * dot_l_n)
+    const dot_r_v = clamp(light_dir.reflected(normal).dot(ray.times(-1)), 0, 1)
+    const i_s = new Point(1, 1, 1)
+    const specular = i_s.times(specular_reflection * Math.pow(dot_r_v, shininess))
+
+    return ambient.plus(diffuse).plus(specular)
   }
 }
 

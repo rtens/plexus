@@ -29,7 +29,7 @@ export default class Controller {
       ['r', 'tilt', () => this.state = 'tilt'],
       ['t', 'zoom/scale', () => this.state = 'zoom'],
       ['m', 'mode', () => {
-        const modes = ['distance', 'normal', 'flat', 'shaded']
+        const modes = ['distance', 'normal', 'flat', 'shaded', 'phong']
         this.camera.mode = modes[(modes.indexOf(this.camera.mode) + 1) % modes.length]
         console.log(this.camera.mode)
       }]
